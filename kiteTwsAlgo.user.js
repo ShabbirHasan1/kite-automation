@@ -165,32 +165,33 @@ function socketInitialization(){
         socket.on("connect",()=>{
             console.log("connected, uuid : ",getAttribute("uuid"));
             setAttribute("live",true)
+            getToast("Bot Logged in").showToast();
             resolve()
         })
         socket.on("disconnect", () => {
-            console.log("Disconnected from server. Trying to reconnect");
             setAttribute("live",false)
+            getToast("Disconnected from server. Trying to reconnect",true).showToast();
         });
         socket.on('connect_failed', ()=> {
-            console.log("Sorry, there seems to be an issue with the connection!");
             setAttribute("live",false)
+            getToast("Sorry, there seems to be an issue with the connection!",true).showToast();
         })
-        socket.on('error',() =>{
-            console.log("error",error);
+        socket.on('error',(error) =>{
             setAttribute("live",false)
+            getToast(`error : ${error}`,true).showToast();
         })
 
         setInterval(function(){
             if(socket.connecting){
-                console.log("connecting...")
+                getToast("Connecting...",true).showToast();
             }
 
             if (!socket.connected && !socket.connecting) {
-                console.log("trying to reconnect...")
+                getToast("Trying to reconnect...",true).showToast();
                 setAttribute("live",false)
                 socket.connect()
                 socket.on("connect",async()=>{
-                    console.log("Connection re-established.")
+                    getToast("Connection re-established.").showToast();
                     setAttribute("live",true)
                 })
             }
@@ -218,7 +219,7 @@ function runOnPositionUpdate(request){
 
     }
     catch(e){
-        console.log(e)
+        getToast(`error : ${e}`,true).showToast();
     }
 }
 
@@ -255,6 +256,7 @@ function initMonkeyConfig(){
 
 async function tradeStrategy(strategyId,requestOrders,expiry){
     console.log("Trading orders",strategyId,expiry,requestOrders,"at",formatDateTime(new Date()))
+    getToast(`Orders for ${strategyId} placed at ${formatDateTime(new Date())}`).showToast();
     let hedgeStatus = g_config.get(`${strategyId}__HEDGE`)
     let requestOrdersBuy=requestOrders.filter(leg=>leg.type==="BUY")
     let requestOrdersSell=requestOrders.filter(leg=>leg.type==="SELL")
@@ -424,7 +426,7 @@ async function enterTrade(strategyId){
         }
     }
     catch(e){
-        getToast("Could not place order",true).showToast();
+        getToast(`Could not place order, error : ${e}`,true).showToast();
         console.log(e)
     }
 
@@ -557,7 +559,7 @@ async function exitTrade(strategyId){
         }
     }
     catch(e){
-        getToast("Could not place order",true).showToast();
+        getToast(`Could not place order, error : ${e}`,true).showToast();
         console.log(e)
     }
 
@@ -571,7 +573,6 @@ async function runOnTradeUpdate(request){
         const {requestOrders,strategyId,expiry}=data
         if(checkIfStrategyRunning(strategyId)){
             const response=await tradeStrategy(strategyId,requestOrders,expiry)
-            console.log(response.data)
             getToast(`${JSON.stringify(response.data)}`).showToast();
         }
     }
