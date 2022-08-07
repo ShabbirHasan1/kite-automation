@@ -81,13 +81,13 @@ function queryStringToJSON(qs) {
     return JSON.parse(JSON.stringify(result));
 };
 
-function getToast(message) {
+function getToast(message,warning=false) {
     return Toastify({
         text: "<span>twsAlgoBot</br>"+message+"</span>",
         duration: 5000,
         close: true,
         offset: "60px",
-        style: {top: "60px",display: "grid", "grid-template-columns": "15fr 1fr"},
+        style: {top: "60px",display: "grid", "grid-template-columns": "15fr 1fr", background: warning?"linear-gradient(to right, #aa4a44,#880808)":"linear-gradient(to right, #00b09b, #00b08a)"},
         escapeMarkup: false
     });
 }
@@ -201,7 +201,6 @@ function checkIfStrategyRunning(id){
 
 function runOnPositionUpdate(request){
     try{
-        console.log("position")
         const {data}=request
         const {position,strategyId,expiry}=data
         if(checkIfStrategyRunning(strategyId)){
@@ -291,104 +290,105 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
 }
 
 async function enterTrade(strategyId){
-    const {position,expiry,timestamp}=getAttribute(`${strategyId}_position`);
-    const canBeTraded=(new Date()).getTime()<timestamp+STALE_SECS*1000
-    let requestOrders=[]
-    let today = new Date()
-    let time=`${today.getHours()}:${today.getMinutes()<10?"0"+today.getMinutes():today.getMinutes()}`
-    if(position.legs.call){
-        requestOrders=[{
-            type:"SELL",
-            optionType:"CE",
-            time,
-            ltp:position.legs.call.ltp,
-            strike:position.legs.call.strike,
-            script:position.script,
-            kiteExpiryPrefix:position.kiteExpiryPrefix
-        },{
-            type:"SELL",
-            optionType:"PE",
-            time,
-            ltp:position.legs.put.ltp,
-            strike:position.legs.put.strike,
-            script:position.script,
-            kiteExpiryPrefix:position.kiteExpiryPrefix
-        },{
-            type:"BUY",
-            optionType:"CE",
-            time,
-            ltp:position.hedges.call.ltp,
-            strike:position.hedges.call.strike,
-            isHedge:true,
-            script:position.script,
-            kiteExpiryPrefix:position.kiteExpiryPrefix
-        },{
-            type:"BUY",
-            optionType:"PE",
-            time,
-            ltp:position.hedges.put.ltp,
-            strike:position.hedges.put.strike,
-            isHedge:true,
-            script:position.script,
-            kiteExpiryPrefix:position.kiteExpiryPrefix
-        }]
-    }
-    else if(position.context.strikes){
-        requestOrders=[]
-        if(position.context.strikes.buy){
-            if(position.context.strikes.buy.call){
-                requestOrders.push({
-                    type:"BUY",
-                    optionType:"CE",
-                    time,
-                    ltp:0,
-                    strike:position.context.strikes.buy.call,
-                    isHedge:true,
-                    script:position.script,
-                    kiteExpiryPrefix:position.kiteExpiryPrefix
-                })
-            }
-            if(position.context.strikes.buy.put){
-                requestOrders.push({
-                    type:"BUY",
-                    optionType:"PE",
-                    time,
-                    ltp:0,
-                    strike:position.context.strikes.buy.put,
-                    isHedge:true,
-                    script:position.script,
-                    kiteExpiryPrefix:position.kiteExpiryPrefix
-                })
-            }
-
+    try{
+        const {position,expiry,timestamp}=getAttribute(`${strategyId}_position`);
+        const canBeTraded=(new Date()).getTime()<timestamp+STALE_SECS*1000
+        let requestOrders=[]
+        let today = new Date()
+        let time=`${today.getHours()}:${today.getMinutes()<10?"0"+today.getMinutes():today.getMinutes()}`
+        if(position.legs.call){
+            requestOrders=[{
+                type:"SELL",
+                optionType:"CE",
+                time,
+                ltp:position.legs.call.ltp,
+                strike:position.legs.call.strike,
+                script:position.script,
+                kiteExpiryPrefix:position.kiteExpiryPrefix
+            },{
+                type:"SELL",
+                optionType:"PE",
+                time,
+                ltp:position.legs.put.ltp,
+                strike:position.legs.put.strike,
+                script:position.script,
+                kiteExpiryPrefix:position.kiteExpiryPrefix
+            },{
+                type:"BUY",
+                optionType:"CE",
+                time,
+                ltp:position.hedges.call.ltp,
+                strike:position.hedges.call.strike,
+                isHedge:true,
+                script:position.script,
+                kiteExpiryPrefix:position.kiteExpiryPrefix
+            },{
+                type:"BUY",
+                optionType:"PE",
+                time,
+                ltp:position.hedges.put.ltp,
+                strike:position.hedges.put.strike,
+                isHedge:true,
+                script:position.script,
+                kiteExpiryPrefix:position.kiteExpiryPrefix
+            }]
         }
-        if(position.context.strikes.sell){
-            if(position.context.strikes.sell.call){
-                requestOrders.push({
-                    type:"SELL",
-                    optionType:"CE",
-                    time,
-                    ltp:0,
-                    strike:position.context.strikes.sell.call,
-                    script:position.script,
-                    kiteExpiryPrefix:position.kiteExpiryPrefix
-                })
-            }
-            if(position.context.strikes.sell.put){
-                requestOrders.push({
-                    type:"SELL",
-                    optionType:"PE",
-                    time,
-                    ltp:0,
-                    strike:position.context.strikes.sell.put,
-                    script:position.script,
-                    kiteExpiryPrefix:position.kiteExpiryPrefix
-                })
-            }
+        else if(position.context.strikes){
+            requestOrders=[]
+            if(position.context.strikes.buy){
+                if(position.context.strikes.buy.call){
+                    requestOrders.push({
+                        type:"BUY",
+                        optionType:"CE",
+                        time,
+                        ltp:0,
+                        strike:position.context.strikes.buy.call,
+                        isHedge:true,
+                        script:position.script,
+                        kiteExpiryPrefix:position.kiteExpiryPrefix
+                    })
+                }
+                if(position.context.strikes.buy.put){
+                    requestOrders.push({
+                        type:"BUY",
+                        optionType:"PE",
+                        time,
+                        ltp:0,
+                        strike:position.context.strikes.buy.put,
+                        isHedge:true,
+                        script:position.script,
+                        kiteExpiryPrefix:position.kiteExpiryPrefix
+                    })
+                }
 
+            }
+            if(position.context.strikes.sell){
+                if(position.context.strikes.sell.call){
+                    requestOrders.push({
+                        type:"SELL",
+                        optionType:"CE",
+                        time,
+                        ltp:0,
+                        strike:position.context.strikes.sell.call,
+                        script:position.script,
+                        kiteExpiryPrefix:position.kiteExpiryPrefix
+                    })
+                }
+                if(position.context.strikes.sell.put){
+                    requestOrders.push({
+                        type:"SELL",
+                        optionType:"PE",
+                        time,
+                        ltp:0,
+                        strike:position.context.strikes.sell.put,
+                        script:position.script,
+                        kiteExpiryPrefix:position.kiteExpiryPrefix
+                    })
+                }
+
+            }
         }
-    }
-    else if(position.context.strikeAtm){
+        else if(position.context.strikeAtm){
         requestOrders=[{
             type:"SELL",
             optionType:"CE",
@@ -403,147 +403,162 @@ async function enterTrade(strategyId){
             kiteExpiryPrefix:position.kiteExpiryPrefix
         }]
     }
-    if(checkIfStrategyRunning(strategyId) ){
-        if(canBeTraded){
-            await tradeStrategy(strategyId,requestOrders,expiry)
+        if(checkIfStrategyRunning(strategyId) ){
+            if(canBeTraded){
+                await tradeStrategy(strategyId,requestOrders,expiry)
+            }
+            else{
+                getToast("Position is stale",true).showToast();
+            }
         }
         else{
-            console.log("Position is stale")
-            alert("Position is stale")
+            getToast("Strategy Switched off",true).showToast();
         }
+    }
+    catch(e){
+        getToast("Could not place order",true).showToast();
+        console.log(e)
     }
 
 }
 
 async function exitTrade(strategyId){
-    const {position,expiry,timestamp}=getAttribute(`${strategyId}_position`);
-    const canBeTraded=(new Date()).getTime()<timestamp+STALE_SECS*1000
-    let requestOrders=[]
-    let today = new Date()
-    let time=`${today.getHours()}:${today.getMinutes()<10?"0"+today.getMinutes():today.getMinutes()}`
-    if(position.legs.call){
-        requestOrders=[{
-            type:"BUY",
-            optionType:"CE",
-            time,
-            ltp:position.legs.call.ltp,
-            strike:position.legs.call.strike,
-            script:position.script,
-            kiteExpiryPrefix:position.kiteExpiryPrefix
-        },{
-            type:"BUY",
-            optionType:"PE",
-            time,
-            ltp:position.legs.put.ltp,
-            strike:position.legs.put.strike,
-            script:position.script,
-            kiteExpiryPrefix:position.kiteExpiryPrefix
-        },{
-            type:"SELL",
-            optionType:"CE",
-            time,
-            ltp:position.hedges.call.ltp,
-            strike:position.hedges.call.strike,
-            isHedge:true,
-            script:position.script,
-            kiteExpiryPrefix:position.kiteExpiryPrefix
-        },{
-            type:"SELL",
-            optionType:"PE",
-            time,
-            ltp:position.hedges.put.ltp,
-            strike:position.hedges.put.strike,
-            isHedge:true,
-            script:position.script,
-            kiteExpiryPrefix:position.kiteExpiryPrefix
-        }]
-    }
-    else if(position.context.strikes){
-        requestOrders=[]
-        if(position.context.strikes.sell){
-            if(position.context.strikes.sell.call){
-                requestOrders.push({
-                    type:"BUY",
-                    optionType:"CE",
-                    time,
-                    ltp:0,
-                    strike:position.context.strikes.sell.call,
-                    script:position.script,
-                    kiteExpiryPrefix:position.kiteExpiryPrefix
-                })
-            }
-            if(position.context.strikes.sell.put){
-                requestOrders.push({
-                    type:"BUY",
-                    optionType:"PE",
-                    time,
-                    ltp:0,
-                    strike:position.context.strikes.sell.put,
-                    script:position.script,
-                    kiteExpiryPrefix:position.kiteExpiryPrefix
-                })
-            }
-
+    try{
+        const {position,expiry,timestamp}=getAttribute(`${strategyId}_position`);
+        const canBeTraded=(new Date()).getTime()<timestamp+STALE_SECS*1000
+        let requestOrders=[]
+        let today = new Date()
+        let time=`${today.getHours()}:${today.getMinutes()<10?"0"+today.getMinutes():today.getMinutes()}`
+        if(position.legs.call){
+            requestOrders=[{
+                type:"BUY",
+                optionType:"CE",
+                time,
+                ltp:position.legs.call.ltp,
+                strike:position.legs.call.strike,
+                script:position.script,
+                kiteExpiryPrefix:position.kiteExpiryPrefix
+            },{
+                type:"BUY",
+                optionType:"PE",
+                time,
+                ltp:position.legs.put.ltp,
+                strike:position.legs.put.strike,
+                script:position.script,
+                kiteExpiryPrefix:position.kiteExpiryPrefix
+            },{
+                type:"SELL",
+                optionType:"CE",
+                time,
+                ltp:position.hedges.call.ltp,
+                strike:position.hedges.call.strike,
+                isHedge:true,
+                script:position.script,
+                kiteExpiryPrefix:position.kiteExpiryPrefix
+            },{
+                type:"SELL",
+                optionType:"PE",
+                time,
+                ltp:position.hedges.put.ltp,
+                strike:position.hedges.put.strike,
+                isHedge:true,
+                script:position.script,
+                kiteExpiryPrefix:position.kiteExpiryPrefix
+            }]
         }
-        if(position.context.strikes.buy){
-            if(position.context.strikes.buy.call){
-                requestOrders.push({
-                    type:"SELL",
-                    optionType:"CE",
-                    time,
-                    ltp:0,
-                    strike:position.context.strikes.buy.call,
-                    isHedge:true,
-                    script:position.script,
-                    kiteExpiryPrefix:position.kiteExpiryPrefix
-                })
-            }
-            if(position.context.strikes.buy.put){
-                requestOrders.push({
-                    type:"SELL",
-                    optionType:"PE",
-                    time,
-                    ltp:0,
-                    strike:position.context.strikes.buy.put,
-                    isHedge:true,
-                    script:position.script,
-                    kiteExpiryPrefix:position.kiteExpiryPrefix
-                })
-            }
+        else if(position.context.strikes){
+            requestOrders=[]
+            if(position.context.strikes.sell){
+                if(position.context.strikes.sell.call){
+                    requestOrders.push({
+                        type:"BUY",
+                        optionType:"CE",
+                        time,
+                        ltp:0,
+                        strike:position.context.strikes.sell.call,
+                        script:position.script,
+                        kiteExpiryPrefix:position.kiteExpiryPrefix
+                    })
+                }
+                if(position.context.strikes.sell.put){
+                    requestOrders.push({
+                        type:"BUY",
+                        optionType:"PE",
+                        time,
+                        ltp:0,
+                        strike:position.context.strikes.sell.put,
+                        script:position.script,
+                        kiteExpiryPrefix:position.kiteExpiryPrefix
+                    })
+                }
 
-        }
-    }
-    else if(position.context.strikeAtm){
-                requestOrders=[{
-                    type:"BUY",
-                    optionType:"CE",
-                    strike:position.context.strikeAtm,
-                    script:position.script,
-                    kiteExpiryPrefix:position.kiteExpiryPrefix
-                },{
-                    type:"BUY",
-                    optionType:"PE",
-                    strike:position.context.strikeAtm,
-                    script:position.script,
-                    kiteExpiryPrefix:position.kiteExpiryPrefix
-                }]
             }
-    if(checkIfStrategyRunning(strategyId)){
-        if(canBeTraded){
-            await tradeStrategy(strategyId,requestOrders,expiry)
+            if(position.context.strikes.buy){
+                if(position.context.strikes.buy.call){
+                    requestOrders.push({
+                        type:"SELL",
+                        optionType:"CE",
+                        time,
+                        ltp:0,
+                        strike:position.context.strikes.buy.call,
+                        isHedge:true,
+                        script:position.script,
+                        kiteExpiryPrefix:position.kiteExpiryPrefix
+                    })
+                }
+                if(position.context.strikes.buy.put){
+                    requestOrders.push({
+                        type:"SELL",
+                        optionType:"PE",
+                        time,
+                        ltp:0,
+                        strike:position.context.strikes.buy.put,
+                        isHedge:true,
+                        script:position.script,
+                        kiteExpiryPrefix:position.kiteExpiryPrefix
+                    })
+                }
+
+            }
+        }
+        else if(position.context.strikeAtm){
+            requestOrders=[{
+                type:"BUY",
+                optionType:"CE",
+                strike:position.context.strikeAtm,
+                script:position.script,
+                kiteExpiryPrefix:position.kiteExpiryPrefix
+            },{
+                type:"BUY",
+                optionType:"PE",
+                strike:position.context.strikeAtm,
+                script:position.script,
+                kiteExpiryPrefix:position.kiteExpiryPrefix
+            }]
+        }
+        if(checkIfStrategyRunning(strategyId)){
+            if(canBeTraded){
+                await tradeStrategy(strategyId,requestOrders,expiry)
+            }
+            else{
+                getToast("Position is stale",true).showToast();
+            }
         }
         else{
-            console.log("Position is stale")
-            alert("Position is stale")
+            getToast("Strategy Switched off",true).showToast();
         }
     }
+    catch(e){
+        getToast("Could not place order",true).showToast();
+        console.log(e)
+    }
+
 
 }
 
 async function runOnTradeUpdate(request){
 
     try{
-        console.log("trade")
         const {data}=request
         const {requestOrders,strategyId,expiry}=data
         if(checkIfStrategyRunning(strategyId)){
@@ -555,10 +570,10 @@ async function runOnTradeUpdate(request){
     catch(e){
         console.log(e)
         if(e&&e.data&&e.data.message){
-            getToast(`${e.data.message}`).showToast();
+            getToast(`${e.data.message}`,true).showToast();
         }
         else{
-            getToast(`${e}`).showToast();
+            getToast(`${e}`,true).showToast();
         }
     }
 }
@@ -577,21 +592,3 @@ async function init(){
     'use strict';
     jQ(window).bind("load",  init);
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
