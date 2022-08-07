@@ -82,6 +82,14 @@ function queryStringToJSON(qs) {
 };
 
 function getToast(message,warning=false) {
+    if(warning){
+        const audio = new Audio("https://github.com/TradeWithSouvik/kite-automation/blob/master/failure.mp3?raw=true");
+        audio.play();
+    }
+    else{
+        const audio = new Audio("https://github.com/TradeWithSouvik/kite-automation/blob/master/success.mp3?raw=true");
+        audio.play();
+    }
     return Toastify({
         text: "<span>twsAlgoBot</br>"+message+"</span>",
         duration: 5000,
