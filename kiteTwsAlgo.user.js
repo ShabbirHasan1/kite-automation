@@ -217,7 +217,7 @@ function runOnPositionUpdate(request){
 
 function initMonkeyConfig(){
     const monkeySettings = {
-        title: 'TWS Algo Settings',
+        title: 'Settings',
         menuCommand: true,
         onSave: reloadPage,
         params: {
