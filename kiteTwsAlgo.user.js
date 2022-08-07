@@ -13,7 +13,7 @@
 // @grant        GM_registerMenuCommand
 // @require      https://paisashare.in/user-auth/socket.io/socket.io.js
 // @require      https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js
-// @require      https://raw.githubusercontent.com/amit0rana/MonkeyConfig/master/monkeyconfig.js
+// @require      https://github.com/TradeWithSouvik/kite-automation/raw/master/monkeyconfig.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js
 // @require      https://raw.githubusercontent.com/kawanet/qs-lite/master/dist/qs-lite.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.27.0/moment.min.js
@@ -196,7 +196,7 @@ function socketInitialization(){
 }
 
 function checkIfStrategyRunning(id){
-    return Object.keys(STRATEGY_IDS).filter(sid=> g_config.get(`${sid}__ORDER`)).includes(id)
+    return STRATEGY_IDS.filter(sid=> g_config.get(`${sid}__ORDER`)).includes(id)
 }
 
 function runOnPositionUpdate(request){
@@ -294,6 +294,8 @@ async function enterTrade(strategyId){
     const {position,expiry,timestamp}=getAttribute(`${strategyId}_position`);
     const canBeTraded=(new Date()).getTime()<timestamp+STALE_SECS*1000
     let requestOrders=[]
+    let today = new Date()
+    let time=`${today.getHours()}:${today.getMinutes()<10?"0"+today.getMinutes():today.getMinutes()}`
     if(position.legs.call){
         requestOrders=[{
             type:"SELL",
@@ -417,6 +419,8 @@ async function exitTrade(strategyId){
     const {position,expiry,timestamp}=getAttribute(`${strategyId}_position`);
     const canBeTraded=(new Date()).getTime()<timestamp+STALE_SECS*1000
     let requestOrders=[]
+    let today = new Date()
+    let time=`${today.getHours()}:${today.getMinutes()<10?"0"+today.getMinutes():today.getMinutes()}`
     if(position.legs.call){
         requestOrders=[{
             type:"BUY",
