@@ -221,8 +221,12 @@ function initMonkeyConfig(){
         onSave: reloadPage,
         params: {
             id: {
-                type: 'text',
+                type: 'password',
                 default: ""
+            },
+            MIS_Order: {
+                type: 'checkbox',
+                default: true
             }
         }
     }
@@ -272,7 +276,7 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
                 "order_type": "MARKET",
                 "quantity": g_config.get(`${strategyId}__QTY`),
                 "price": "0",
-                "product": "MIS",
+                "product":  g_config.get("MIS_Order")?"MIS":"NRML",
                 "validity": "DAY",
                 "disclosed_quantity": "0",
                 "trigger_price": "0",
