@@ -686,7 +686,7 @@ MonkeyConfig.HTML = {
                 'name="' + name + '"></textarea>';
         else
             return '<input id="__MonkeyConfig_field_' + name + '" ' +
-                'type="password" class="__MonkeyConfig_field_text" ' +
+                'type="text" class="__MonkeyConfig_field_text" ' +
                 'name="' + name + '" />';
     }
 };
