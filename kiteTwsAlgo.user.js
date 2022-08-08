@@ -235,7 +235,7 @@ function initMonkeyConfig(){
         onSave: reloadPage,
         params: {
             id: {
-                type: 'password',
+                type: 'text',
                 default: ""
             },
             MIS_Order: {
