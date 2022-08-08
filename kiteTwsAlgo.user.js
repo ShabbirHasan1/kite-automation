@@ -33,7 +33,19 @@ window.jQ = jQuery.noConflict(true);
 GM_addStyle(GM_getResourceText("TOASTIFY_CSS"));
 setAttribute("uuid",uuid.v4());
 const BASE_URL = "https://kite.zerodha.com";
-const STRATEGY_IDS=["NIFTY_2259621564362513","NIFTY_8915142776897629","NIFTY_2662529212584048","NIFTY_7576513120993982","NIFTY_ic_intraday"]
+const STRATEGIES=[{strategyId:"NIFTY_2259621564362513"},
+                  {strategyId:"NIFTY_8915142776897629"},
+                  {strategyId:"NIFTY_2662529212584048"},
+                  {strategyId:"NIFTY_7576513120993982"},
+                  {strategyId:"NIFTY_ic_intraday"},
+                  {strategyId:"NIFTY_DZPOS",directional:true},
+                  {strategyId:"NIFTY_TFPOS",directional:true},
+                  {strategyId:"NIFTY_TFINTRA",directional:true},
+                  {strategyId:"BANKNIFTY_MRINTRA",directional:true},
+                  {strategyId:"BANKNIFTY_SWPOS",directional:true},
+                  {strategyId:"BANKNIFTY_TFPOS",directional:true}
+                 ]
+const STRATEGY_IDS=STRATEGIES.map(_=>_.strategyId)
 const BOT_URL = "wss://paisashare.in"
 const BOT_PATH = "/user-auth/socket.io/"
 const STALE_SECS = 60
@@ -112,13 +124,18 @@ function getAttribute(key){
 
 function makeOrder(order){
     return new Promise((resolve,reject)=>{
-        jQ.ajaxSetup({
-            headers: {
-                'Authorization': `enctoken ${getCookie('enctoken')}`
-            }
-        });
-        jQ.post(BASE_URL + "/oms/orders/regular",order,(data, status) =>resolve({data,status}))
-            .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+        try{
+            jQ.ajaxSetup({
+                headers: {
+                    'Authorization': `enctoken ${getCookie('enctoken')}`
+                }
+            });
+            jQ.post(BASE_URL + "/oms/orders/regular",order,(data, status) =>resolve({data,status}))
+                .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+        }
+        catch(e){
+            console.log(e)
+        }
     });
 
 }
@@ -245,18 +262,20 @@ function initMonkeyConfig(){
         }
     }
 
-    for(const strategy of STRATEGY_IDS){
-        monkeySettings.params[`${strategy}__QTY`]={
+    for(const strategy of STRATEGIES){
+        monkeySettings.params[`${strategy.strategyId}__QTY`]={
             type: 'number',
             default: 200
         }
-        monkeySettings.params[`${strategy}__ORDER`]={
+        monkeySettings.params[`${strategy.strategyId}__ORDER`]={
             type: 'checkbox',
             default: false
         }
-        monkeySettings.params[`${strategy}__HEDGE`]={
-            type: 'checkbox',
-            default: true
+        if(!strategy.directional){
+            monkeySettings.params[`${strategy.strategyId}__HEDGE`]={
+                type: 'checkbox',
+                default: true
+            }
         }
     }
 
@@ -264,6 +283,7 @@ function initMonkeyConfig(){
 }
 
 async function tradeStrategy(strategyId,requestOrders,expiry){
+
     console.log("Trading orders",strategyId,expiry,requestOrders,"at",formatDateTime(new Date()))
     getToast(`Orders for ${strategyId} placed at ${formatDateTime(new Date())}`).showToast();
     let hedgeStatus = g_config.get(`${strategyId}__HEDGE`)
@@ -289,7 +309,7 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
                 "tradingsymbol": `${order.script}${order.kiteExpiryPrefix}${order.strike}${order.optionType}`,
                 "transaction_type": order.type,
                 "order_type": "MARKET",
-                "quantity": g_config.get(`${strategyId}__QTY`),
+                "quantity": g_config.get(`${strategyId}__QTY`)*(order.exitPrevious?2:1),
                 "price": "0",
                 "product":  g_config.get("MIS_Order")?"MIS":"NRML",
                 "validity": "DAY",
@@ -311,11 +331,14 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
 async function enterTrade(strategyId){
     try{
         const {position,expiry,timestamp}=getAttribute(`${strategyId}_position`);
-        const canBeTraded=(new Date()).getTime()<timestamp+STALE_SECS*1000
+        const canBeTraded=(new Date()).getTime()<timestamp+STALE_SECS*1000*(position.directional?3600:1)
         let requestOrders=[]
         let today = new Date()
         let time=`${today.getHours()}:${today.getMinutes()<10?"0"+today.getMinutes():today.getMinutes()}`
-        if(position.legs.call){
+        if(position.directional&&position.requestOrders){
+            requestOrders=position.requestOrders
+        }
+        else if(position.legs.call){
             requestOrders=[{
                 type:"SELL",
                 optionType:"CE",
@@ -422,6 +445,7 @@ async function enterTrade(strategyId){
             kiteExpiryPrefix:position.kiteExpiryPrefix
         }]
     }
+
         if(checkIfStrategyRunning(strategyId) ){
             if(canBeTraded){
                 await tradeStrategy(strategyId,requestOrders,expiry)
@@ -435,7 +459,7 @@ async function enterTrade(strategyId){
         }
     }
     catch(e){
-        getToast(`Could not place order, error : ${e}`,true).showToast();
+        getToast(`Could not place order, error : ${JSON.stringify(e)}`,true).showToast();
         console.log(e)
     }
 
@@ -444,11 +468,15 @@ async function enterTrade(strategyId){
 async function exitTrade(strategyId){
     try{
         const {position,expiry,timestamp}=getAttribute(`${strategyId}_position`);
-        const canBeTraded=(new Date()).getTime()<timestamp+STALE_SECS*1000
+        const canBeTraded=(new Date()).getTime()<timestamp+STALE_SECS*1000*(position.directional?3600:1)
         let requestOrders=[]
         let today = new Date()
         let time=`${today.getHours()}:${today.getMinutes()<10?"0"+today.getMinutes():today.getMinutes()}`
-        if(position.legs.call){
+
+        if(position.directional&&position.requestOrders){
+            requestOrders=position.requestOrders
+        }
+        else if(position.legs.call){
             requestOrders=[{
                 type:"BUY",
                 optionType:"CE",
@@ -568,7 +596,7 @@ async function exitTrade(strategyId){
         }
     }
     catch(e){
-        getToast(`Could not place order, error : ${e}`,true).showToast();
+        getToast(`Could not place order, error : ${JSON.stringify(e)}`,true).showToast();
         console.log(e)
     }
 
@@ -580,6 +608,9 @@ async function runOnTradeUpdate(request){
     try{
         const {data}=request
         const {requestOrders,strategyId,expiry}=data
+        if(data.directional){
+          setAttribute(`${strategyId}_position`,{position:{requestOrders,directional:true},timestamp:(new Date()).getTime(),expiry})
+        }
         if(checkIfStrategyRunning(strategyId)){
             await tradeStrategy(strategyId,requestOrders,expiry)
         }
