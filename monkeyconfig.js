@@ -262,7 +262,7 @@ function MonkeyConfig() {
                 values[name] = params[name].get(container
                         .querySelector('#__MonkeyConfig_parent_' + name));
                 break;
-            case 'number': case 'text': case 'password':
+            case 'number': case 'text':
                 var elem = container.querySelector('[name="' + name + '"]');
                 values[name] = elem.value;
                 break;
@@ -686,14 +686,8 @@ MonkeyConfig.HTML = {
                 'name="' + name + '"></textarea>';
         else
             return '<input id="__MonkeyConfig_field_' + name + '" ' +
-                'type="text" class="__MonkeyConfig_field_text" ' +
+                'type="password" class="__MonkeyConfig_field_text" ' +
                 'name="' + name + '" />';
-    },
-    'password': function (name, options, data) {
-        
-        return '<input id="__MonkeyConfig_field_' + name + '" ' +
-            'type="password" class="__MonkeyConfig_field_text" ' +
-            'name="' + name + '" />';
     }
 };
 
