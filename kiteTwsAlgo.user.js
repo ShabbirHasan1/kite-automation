@@ -82,6 +82,14 @@ function queryStringToJSON(qs) {
 };
 
 function getToast(message,warning=false) {
+    if(warning){
+        const audio = new Audio("https://github.com/TradeWithSouvik/kite-automation/blob/master/failure.mp3?raw=true");
+        audio.play();
+    }
+    else{
+        const audio = new Audio("https://github.com/TradeWithSouvik/kite-automation/blob/master/success.mp3?raw=true");
+        audio.play();
+    }
     return Toastify({
         text: "<span>twsAlgoBot</br>"+message+"</span>",
         duration: 5000,
@@ -153,44 +161,50 @@ function addZero(val){
 
 function socketInitialization(){
     return new Promise((resolve,reject)=>{
-        socket = io(BOT_URL, {path: BOT_PATH});
-        socket.on("connect",()=>{
-            console.log("connected, uuid : ",getAttribute("uuid"));
-            setAttribute("live",true)
-            resolve()
-        })
-        socket.on("disconnect", () => {
-            console.log("Disconnected from server. Trying to reconnect");
-            setAttribute("live",false)
-        });
-        socket.on('connect_failed', ()=> {
-            console.log("Sorry, there seems to be an issue with the connection!");
-            setAttribute("live",false)
-        })
-        socket.on('error',() =>{
-            console.log("error",error);
-            setAttribute("live",false)
-        })
-
-        setInterval(function(){
-            if(socket.connecting){
-                console.log("connecting...")
-            }
-
-            if (!socket.connected && !socket.connecting) {
-                console.log("trying to reconnect...")
+        if(getCookie('enctoken')){
+            socket = io(BOT_URL, {path: BOT_PATH});
+            socket.on("connect",()=>{
+                console.log("connected, uuid : ",getAttribute("uuid"));
+                setAttribute("live",true)
+                getToast("Bot Logged in").showToast();
+                resolve()
+            })
+            socket.on("disconnect", () => {
                 setAttribute("live",false)
-                socket.connect()
-                socket.on("connect",async()=>{
-                    console.log("Connection re-established.")
-                    setAttribute("live",true)
-                })
-            }
-        }, 4000)
+                getToast("Disconnected from server. Trying to reconnect",true).showToast();
+            });
+            socket.on('connect_failed', ()=> {
+                setAttribute("live",false)
+                getToast("Sorry, there seems to be an issue with the connection!",true).showToast();
+            })
+            socket.on('error',(error) =>{
+                setAttribute("live",false)
+                getToast(`error : ${error}`,true).showToast();
+            })
 
-        socket.on("position",runOnPositionUpdate)
-        socket.on("trade",runOnTradeUpdate)
-        socket.emit("init",{userId:g_config.get("id"),url:BASE_URL})
+            setInterval(function(){
+                if(socket.connecting){
+                    getToast("Connecting...",true).showToast();
+                }
+
+                if (!socket.connected && !socket.connecting) {
+                    getToast("Trying to reconnect...",true).showToast();
+                    setAttribute("live",false)
+                    socket.connect()
+                    socket.on("connect",async()=>{
+                        getToast("Connection re-established.").showToast();
+                        setAttribute("live",true)
+                    })
+                }
+            }, 4000)
+
+            socket.on("position",runOnPositionUpdate)
+            socket.on("trade",runOnTradeUpdate)
+            socket.emit("init",{userId:g_config.get("id"),url:BASE_URL})
+        }
+        else{
+            reject("Not logged in")
+        }
 
     });
 }
@@ -210,7 +224,7 @@ function runOnPositionUpdate(request){
 
     }
     catch(e){
-        console.log(e)
+        getToast(`error : ${e}`,true).showToast();
     }
 }
 
@@ -251,6 +265,7 @@ function initMonkeyConfig(){
 
 async function tradeStrategy(strategyId,requestOrders,expiry){
     console.log("Trading orders",strategyId,expiry,requestOrders,"at",formatDateTime(new Date()))
+    getToast(`Orders for ${strategyId} placed at ${formatDateTime(new Date())}`).showToast();
     let hedgeStatus = g_config.get(`${strategyId}__HEDGE`)
     let requestOrdersBuy=requestOrders.filter(leg=>leg.type==="BUY")
     let requestOrdersSell=requestOrders.filter(leg=>leg.type==="SELL")
@@ -420,7 +435,7 @@ async function enterTrade(strategyId){
         }
     }
     catch(e){
-        getToast("Could not place order",true).showToast();
+        getToast(`Could not place order, error : ${e}`,true).showToast();
         console.log(e)
     }
 
@@ -553,7 +568,7 @@ async function exitTrade(strategyId){
         }
     }
     catch(e){
-        getToast("Could not place order",true).showToast();
+        getToast(`Could not place order, error : ${e}`,true).showToast();
         console.log(e)
     }
 
@@ -566,9 +581,7 @@ async function runOnTradeUpdate(request){
         const {data}=request
         const {requestOrders,strategyId,expiry}=data
         if(checkIfStrategyRunning(strategyId)){
-            const response=await tradeStrategy(strategyId,requestOrders,expiry)
-            console.log(response.data)
-            getToast(`${JSON.stringify(response.data)}`).showToast();
+            await tradeStrategy(strategyId,requestOrders,expiry)
         }
     }
     catch(e){
@@ -583,16 +596,21 @@ async function runOnTradeUpdate(request){
 }
 
 async function init(){
-    initMonkeyConfig();
-    GM_registerMenuCommand("Reload", reloadPage, "r");
-    for(let id of STRATEGY_IDS){
-        GM_registerMenuCommand(`${id} Enter`, ()=>{ enterTrade(id)});
-        GM_registerMenuCommand(`${id} Exit`, ()=>{ exitTrade(id)});
+    try{
+        initMonkeyConfig();
+        GM_registerMenuCommand("Reload", reloadPage, "r");
+        for(let id of STRATEGY_IDS){
+            GM_registerMenuCommand(`${id} Enter`, ()=>{ enterTrade(id)});
+            GM_registerMenuCommand(`${id} Exit`, ()=>{ exitTrade(id)});
+        }
+        await socketInitialization();
     }
-    await socketInitialization();
+    catch(e){
+        console.log(e)
+    }
 }
 
 ;(function() {
     'use strict';
-    jQ(window).bind("load",  init);
+    jQ(window).bind("load", init);
 })();
