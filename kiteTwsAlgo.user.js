@@ -577,8 +577,7 @@ async function runOnTradeUpdate(request){
         const {data}=request
         const {requestOrders,strategyId,expiry}=data
         if(checkIfStrategyRunning(strategyId)){
-            const response=await tradeStrategy(strategyId,requestOrders,expiry)
-            getToast(`${JSON.stringify(response.data)}`).showToast();
+            await tradeStrategy(strategyId,requestOrders,expiry)
         }
     }
     catch(e){
