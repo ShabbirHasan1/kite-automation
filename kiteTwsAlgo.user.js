@@ -302,8 +302,9 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
 
     const baskets = [requestDataBuy,requestDataSell]
     for (const basket of baskets){
+        let _trades=[]
         for(const order of basket.orders){
-            const response = await makeOrder({
+            _trades.push(makeOrder({
                 "variety": "regular",
                 "exchange": "NFO",
                 "tradingsymbol": `${order.script}${order.kiteExpiryPrefix}${order.strike}${order.optionType}`,
@@ -318,12 +319,10 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
                 "squareoff": "0",
                 "stoploss": "0",
                 "trailing_stoploss": "0"
-            })
-
-            await waitForAWhile(100)
-
+            }))
         }
-
+        const responses =  await Promise.all(_trades)
+        await waitForAWhile(100)
     }
 
 }
