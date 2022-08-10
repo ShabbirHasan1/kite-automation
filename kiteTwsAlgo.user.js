@@ -33,8 +33,17 @@ window.jQ = jQuery.noConflict(true);
 GM_addStyle(GM_getResourceText("TOASTIFY_CSS"));
 setAttribute("uuid",uuid.v4());
 const BASE_URL = "https://kite.zerodha.com";
-const STRATEGIES=[{strategyId:"NIFTY_ic_intraday"},
-                  {strategyId:"NIFTY_DZPOS",directional:true}
+const STRATEGIES=[{strategyId:"NIFTY_2259621564362513"},
+                  {strategyId:"NIFTY_8915142776897629"},
+                  {strategyId:"NIFTY_2662529212584048"},
+                  {strategyId:"NIFTY_7576513120993982"},
+                  {strategyId:"NIFTY_ic_intraday"},
+                  {strategyId:"NIFTY_DZPOS",directional:true},
+                  {strategyId:"NIFTY_TFPOS",directional:true},
+                  {strategyId:"NIFTY_TFINTRA",directional:true},
+                  {strategyId:"BANKNIFTY_MRINTRA",directional:true},
+                  {strategyId:"BANKNIFTY_SWPOS",directional:true},
+                  {strategyId:"BANKNIFTY_TFPOS",directional:true}
                  ]
 const STRATEGY_IDS=STRATEGIES.map(_=>_.strategyId)
 const BOT_URL = "wss://paisashare.in"
