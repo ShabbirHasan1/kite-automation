@@ -51,7 +51,7 @@ const BOT_PATH = "/user-auth/socket.io/"
 const STALE_SECS = 60
 let socket
 let g_config
-
+let lastUpdatedAt
 
 
 
@@ -184,6 +184,15 @@ function socketInitialization(){
                 console.log("connected, uuid : ",getAttribute("uuid"));
                 setAttribute("live",true)
                 getToast("Bot Logged in").showToast();
+                setTimeout(()=>{
+                    for(let sid of STRATEGY_IDS){
+                        if( g_config.get(`${sid}__ORDER`)){
+                            socket.emit("position",{userId:g_config.get("id"),strategyId:sid});
+                        }
+                    }
+                },1000)
+                document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML
+
                 resolve()
             })
             socket.on("disconnect", () => {
@@ -217,6 +226,7 @@ function socketInitialization(){
 
             socket.on("position",runOnPositionUpdate)
             socket.on("trade",runOnTradeUpdate)
+            socket.on("position-update",runOnPositionUpdate)
             socket.emit("init",{userId:g_config.get("id"),url:BASE_URL})
         }
         else{
@@ -232,6 +242,8 @@ function checkIfStrategyRunning(id){
 
 function runOnPositionUpdate(request){
     try{
+        lastUpdatedAt=(new Date()).getTime()
+        document.querySelector("#_lastTime").textContent=`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `
         const {data}=request
         const {position,strategyId,expiry}=data
         if(checkIfStrategyRunning(strategyId)){
@@ -451,6 +463,7 @@ async function enterTrade(strategyId){
             }
             else{
                 getToast("Position is stale",true).showToast();
+                socket.emit("position",{userId:g_config.get("id"),strategyId});
             }
         }
         else{
