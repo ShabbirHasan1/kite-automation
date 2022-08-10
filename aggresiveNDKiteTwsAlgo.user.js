@@ -182,7 +182,7 @@ function socketInitialization(){
                         }
                     }
                 },1000)
-                document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML
+              //  document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML
 
                 resolve()
             })
@@ -234,7 +234,7 @@ function checkIfStrategyRunning(id){
 function runOnPositionUpdate(request){
     try{
         lastUpdatedAt=(new Date()).getTime()
-        document.querySelector("#_lastTime").textContent=`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `
+      //  document.querySelector("#_lastTime").textContent=`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `
         const {data}=request
         const {position,strategyId,expiry}=data
         if(checkIfStrategyRunning(strategyId)){
