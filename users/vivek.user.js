@@ -35,7 +35,7 @@ setAttribute("uuid",uuid.v4());
 const BASE_URL = "https://kite.zerodha.com";
 const STRATEGIES=[
                   {strategyId:"NIFTY_ic_intraday"},
-                  {strategyId:"NIFTY_DZPOS",directional:true}
+                  {strategyId:"NIFTY_TFPOS",directional:true}
                  ]
 const STRATEGY_IDS=STRATEGIES.map(_=>_.strategyId)
 const BOT_URL = "wss://paisashare.in"
