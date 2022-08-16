@@ -347,7 +347,7 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
                 "order_type": "MARKET",
                 "quantity": g_config.get(`${strategyId}__QTY`)*(order.exitPrevious?2:1),
                 "price": "0",
-                "product":  g_config.get("MIS_Order")?"MIS":"NRML",
+                "product":  strategyId.endsWith("POS")?"NRML":(g_config.get("MIS_Order")?"MIS":"NRML"),
                 "validity": "DAY",
                 "disclosed_quantity": "0",
                 "trigger_price": "0",
