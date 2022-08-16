@@ -122,7 +122,7 @@ function getAttribute(key){
     return GM_getValue("__twsAlgo",{})[key]
 }
 
-function makeOrder(order){
+function makeOrder(order,script,iceberg=false){
     return new Promise((resolve,reject)=>{
         try{
             jQ.ajaxSetup({
@@ -130,8 +130,20 @@ function makeOrder(order){
                     'Authorization': `enctoken ${getCookie('enctoken')}`
                 }
             });
-            jQ.post(BASE_URL + "/oms/orders/regular",order,(data, status) =>resolve({data,status}))
+
+            if(iceberg){
+                order["variety"]="iceberg"
+                order["iceberg_legs"]=Math.ceil(order["quantity"]/g_config.get(`${script}_FREEZE_LIMIT`))
+                if(order["iceberg_legs"]<=10){
+                    order["iceberg_quantity"]=order["quantity"]%order["iceberg_legs"]+order["quantity"]/order["iceberg_legs"]
+                    jQ.post(BASE_URL + "/oms/orders/iceberg",order,(data, status) =>resolve({data,status}))
+                        .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+                }
+            }
+            else{
+                jQ.post(BASE_URL + "/oms/orders/regular",order,(data, status) =>resolve({data,status}))
                 .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+            }
         }
         catch(e){
             console.log(e)
@@ -191,7 +203,7 @@ function socketInitialization(){
                         }
                     }
                 },1000)
-               // document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML
+                // document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML
 
                 resolve()
             })
@@ -243,7 +255,7 @@ function checkIfStrategyRunning(id){
 function runOnPositionUpdate(request){
     try{
         lastUpdatedAt=(new Date()).getTime()
-     //   document.querySelector("#_lastTime").textContent=`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `
+        // document.querySelector("#_lastTime").textContent=`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `
         const {data}=request
         const {position,strategyId,expiry}=data
         if(checkIfStrategyRunning(strategyId)){
@@ -266,6 +278,14 @@ function initMonkeyConfig(){
             id: {
                 type: 'text',
                 default: ""
+            },
+            NIFTY_FREEZE_LIMIT: {
+                type: 'number',
+                default: 1800
+            },
+            BANKNIFTY_FREEZE_LIMIT: {
+                type: 'number',
+                default: 1200
             },
             MIS_Order: {
                 type: 'checkbox',
@@ -312,10 +332,13 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
         orders:requestOrdersSell,expiry
     }
 
+
     const baskets = [requestDataBuy,requestDataSell]
     for (const basket of baskets){
         let _trades=[]
         for(const order of basket.orders){
+            const limitQty=g_config.get(`${order.script.toUpperCase()}_FREEZE_LIMIT`)
+            const qty = g_config.get(`${strategyId}__QTY`)*(order.exitPrevious?2:1)
             _trades.push(makeOrder({
                 "variety": "regular",
                 "exchange": "NFO",
@@ -331,7 +354,7 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
                 "squareoff": "0",
                 "stoploss": "0",
                 "trailing_stoploss": "0"
-            }))
+            },order.script.toUpperCase(),qty>limitQty))
         }
         const responses =  await Promise.all(_trades)
         await waitForAWhile(100)
