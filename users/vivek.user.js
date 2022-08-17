@@ -127,7 +127,7 @@ function makeOrder(order,script,iceberg=false){
                 order["variety"]="iceberg"
                 order["iceberg_legs"]=Math.ceil(order["quantity"]/g_config.get(`${script}_FREEZE_LIMIT`))
                 if(order["iceberg_legs"]<=10){
-                    order["iceberg_quantity"]=order["quantity"]%order["iceberg_legs"]+order["quantity"]/order["iceberg_legs"]
+                    order["iceberg_quantity"]=order["quantity"]%order["iceberg_legs"]+Math.floor(order["quantity"]/order["iceberg_legs"])
                     jQ.post(BASE_URL + "/oms/orders/iceberg",order,(data, status) =>resolve({data,status}))
                         .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
                 }
