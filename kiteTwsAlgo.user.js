@@ -204,12 +204,12 @@ function socketInitialization(){
                     }
                 },1000)
                 socket.emit("init",{userId:g_config.get("id"),url:BASE_URL})
-                // if (document.querySelector("#_lastTime")){
-                //     document.querySelector("#_lastTime").textContent=`Bot Syncing... `
-                // }
-                // else{
-                //     document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML
-                // }
+                if (document.querySelector("#_lastTime")){
+                    document.querySelector("#_lastTime").textContent=`Bot Syncing... `
+                }
+                else{
+                    document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML
+                }
                 resolve()
             })
             socket.on("disconnect", () => {
@@ -243,12 +243,12 @@ function socketInitialization(){
                         }
                     },1000)
                     socket.emit("init",{userId:ID||g_config.get("id"),url:BASE_URL})
-                    // if (document.querySelector("#_lastTime")){
-                    //     document.querySelector("#_lastTime").textContent=`Bot Syncing... `
-                    // }
-                    // else{
-                    //     document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML
-                    // }
+                    if (document.querySelector("#_lastTime")){
+                        document.querySelector("#_lastTime").textContent=`Bot Syncing... `
+                    }
+                    else{
+                        document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML
+                    }
                 }
             }, 4000)
 
@@ -270,9 +270,9 @@ function checkIfStrategyRunning(id){
 function runOnPositionUpdate(request){
     try{
         lastUpdatedAt=(new Date()).getTime()
-        // if (document.querySelector("#_lastTime")){
-        //     document.querySelector("#_lastTime").textContent=`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `
-        // }
+        if (document.querySelector("#_lastTime")){
+            document.querySelector("#_lastTime").textContent=`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `
+        }
         const {data}=request
         const {position,strategyId,expiry}=data
         if(checkIfStrategyRunning(strategyId)){
