@@ -230,11 +230,11 @@ function socketInitialization(){
                     setTimeout(()=>{
                         for(let sid of STRATEGY_IDS){
                             if( g_config.get(`${sid}__ORDER`)){
-                                socket.emit("position",{userId:ID||g_config.get("id"),strategyId:sid});
+                                socket.emit("position",{userId:g_config.get("id"),strategyId:sid});
                             }
                         }
                     },1000)
-                    socket.emit("init",{userId:ID||g_config.get("id"),url:BASE_URL})
+                    socket.emit("init",{userId:g_config.get("id"),url:BASE_URL})
                     // if (document.querySelector("#_lastTime")){
                     //     document.querySelector("#_lastTime").textContent=`Bot Syncing... `
                     // }
