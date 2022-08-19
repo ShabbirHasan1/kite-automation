@@ -34,7 +34,7 @@ GM_addStyle(GM_getResourceText("TOASTIFY_CSS"));
 setAttribute("uuid",uuid.v4());
 const BASE_URL = "https://kite.zerodha.com";
 const STRATEGIES=[
-                  {strategyId:"NIFTY_ic_intraday"}
+                    {strategyId:"NIFTY_ic_intraday"}
                  ]
 const STRATEGY_IDS=STRATEGIES.map(_=>_.strategyId)
 const BOT_URL = "wss://paisashare.in"
@@ -194,6 +194,7 @@ function socketInitialization(){
                         }
                     }
                 },1000)
+                socket.emit("init",{userId:g_config.get("id"),url:BASE_URL})
                 if (document.querySelector("#_lastTime")){
                     document.querySelector("#_lastTime").textContent=`Bot Syncing... `
                 }
@@ -222,19 +223,29 @@ function socketInitialization(){
 
                 if (!socket.connected && !socket.connecting) {
                     getToast("Trying to reconnect...",true).showToast();
-                    setAttribute("live",false)
-                    socket.connect()
-                    socket.on("connect",async()=>{
-                        getToast("Connection re-established.").showToast();
-                        setAttribute("live",true)
-                    })
+                    console.log("connected, uuid : ",getAttribute("uuid"));
+                    setAttribute("live",true)
+                    getToast("Bot Logged in").showToast();
+                    setTimeout(()=>{
+                        for(let sid of STRATEGY_IDS){
+                            if( g_config.get(`${sid}__ORDER`)){
+                                socket.emit("position",{userId:ID||g_config.get("id"),strategyId:sid});
+                            }
+                        }
+                    },1000)
+                    socket.emit("init",{userId:ID||g_config.get("id"),url:BASE_URL})
+                    if (document.querySelector("#_lastTime")){
+                        document.querySelector("#_lastTime").textContent=`Bot Syncing... `
+                    }
+                    else{
+                        document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML
+                    }
                 }
             }, 4000)
 
             socket.on("position",runOnPositionUpdate)
             socket.on("trade",runOnTradeUpdate)
             socket.on("position-update",runOnPositionUpdate)
-            socket.emit("init",{userId:g_config.get("id"),url:BASE_URL})
         }
         else{
             reject("Not logged in")
