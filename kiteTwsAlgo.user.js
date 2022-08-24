@@ -40,11 +40,11 @@ const STRATEGIES=[{strategyId:"NIFTY_2259621564362513"},
                   {strategyId:"NIFTY_nd_bot_1"},
                   {strategyId:"BANKNIFTY_nd_bot_2"},
                   {strategyId:"NIFTY_ic_intraday"},
-                  {strategyId:"NIFTY_DZPOS",directional:true},
+                  {strategyId:"NIFTY_SRPOS",directional:true},
                   {strategyId:"NIFTY_TFPOS",directional:true},
-                  {strategyId:"NIFTY_TFINTRA",directional:true},
-                  {strategyId:"BANKNIFTY_TFPOS",directional:true},
-                  {strategyId:"BANKNIFTY_SWPOS",directional:true}
+                  {strategyId:"BANKNIFTY_SWPOS",directional:true},
+                  {strategyId:"BANKNIFTY_SMCPOS",directional:true},
+                  {strategyId:"BANKNIFTY_GAPPOS",directional:true}
                  ]
 const STRATEGY_IDS=STRATEGIES.map(_=>_.strategyId)
 const BOT_URL = "wss://paisashare.in"
