@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         sasTwsAlgo
+// @name         finvasiaTwsAlgo
 // @namespace    https://paisashare.in
 // @version      1.0
-// @description  Algo Trading Sas
+// @description  Algo Trading Finvaisa
 // @author       Souvik Das
-// @match        https://alpha.sasonline.in/*
+// @match        https://shoonya.finvasia.com/*
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addStyle
@@ -31,19 +31,19 @@
 window.jQ = jQuery.noConflict(true);
 GM_addStyle(GM_getResourceText("TOASTIFY_CSS"));
 setAttribute("uuid",uuid.v4());
-const BASE_URL = "https://alpha.sasonline.in";
+const BASE_URL = "https://shoonya.finvasia.com/";
 const STRATEGIES=[{strategyId:"NIFTY_2259621564362513"},
-                    {strategyId:"NIFTY_8915142776897629"},
-                    {strategyId:"NIFTY_2662529212584048"},
-                    {strategyId:"NIFTY_7576513120993982"},
-                    {strategyId:"NIFTY_nd_bot_1"},
-                    {strategyId:"BANKNIFTY_nd_bot_2"},
-                    {strategyId:"NIFTY_ic_intraday"},
-                    {strategyId:"NIFTY_SRPOS",directional:true},
-                    {strategyId:"NIFTY_TFPOS",directional:true},
-                    {strategyId:"BANKNIFTY_SWPOS",directional:true},
-                    {strategyId:"BANKNIFTY_SMCPOS",directional:true},
-                    {strategyId:"BANKNIFTY_GAPPOS",directional:true}
+                  {strategyId:"NIFTY_8915142776897629"},
+                  {strategyId:"NIFTY_2662529212584048"},
+                  {strategyId:"NIFTY_7576513120993982"},
+                  {strategyId:"NIFTY_nd_bot_1"},
+                  {strategyId:"BANKNIFTY_nd_bot_2"},
+                  {strategyId:"NIFTY_DZPOS",directional:true},
+                  {strategyId:"NIFTY_TFPOS",directional:true},
+                  {strategyId:"NIFTY_TFINTRA",directional:true},
+                  {strategyId:"BANKNIFTY_TFPOS",directional:true},
+                  {strategyId:"BANKNIFTY_SWPOS",directional:true},
+                  {strategyId:"BANKNIFTY_OBPOS",directional:true}
                  ]
 const STRATEGY_IDS=STRATEGIES.map(_=>_.strategyId)
 const BOT_URL = "wss://paisashare.in"
@@ -132,34 +132,23 @@ function makeOrder(order,script){
                 let remainingOrders=qty%fl;
                 let times =Math.floor(qty/fl)
                 for(let i=0;i<times;i++){
-                    jQ.ajaxSetup({
-                        headers: {
-                            'x-authorization-token': `${localStorage.getItem('token')}`
-                        }
-                    });
-                    order.quantity=fl
-                    jQ.post(BASE_URL + "/api/v1/orders", order,(data, status) =>resolve({data,status}))
+                    order.qty=fl.toString()
+                    const data =`jData=${JSON.stringify(order)}&jKey=${sessionStorage.getItem('susertoken')}`
+                    jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data,(data, status) =>resolve({data,status}))
                         .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
                 }
                 if(remainingOrders>0){
-                    order.quantity=remainingOrders
-                    jQ.ajaxSetup({
-                        headers: {
-                            'x-authorization-token': `${localStorage.getItem('token')}`
-                        }
-                    });
-                    jQ.post(BASE_URL + "/api/v1/orders", order,(data, status) =>resolve({data,status}))
+                    order.qty=remainingOrders.toString()
+                    const data =`jData=${JSON.stringify(order)}&jKey=${sessionStorage.getItem('susertoken')}`
+                    jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data,(data, status) =>resolve({data,status}))
                         .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
                 }
             }
             else{
-                jQ.ajaxSetup({
-                    headers: {
-                        'x-authorization-token': `${localStorage.getItem('token')}`
-                    }
-                });
-                jQ.post(BASE_URL + "/api/v1/orders", order,(data, status) =>resolve({data,status}))
-                    .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+                 const data =`jData=${JSON.stringify(order)}&jKey=${sessionStorage.getItem('susertoken')}`
+                 jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data,(data, status) =>resolve({data,status}))
+                     .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+
             }
 
         }
@@ -169,6 +158,9 @@ function makeOrder(order,script){
     });
 
 }
+
+
+
 
 async function getInstrumentToken(name){
     return (await jQ.get(BASE_URL + `/api/v1/search?key=${name}`)).result[0].token
@@ -214,7 +206,7 @@ function addZero(val){
 
 function socketInitialization(){
     return new Promise((resolve,reject)=>{
-        if(localStorage.getItem('token')){
+        if(sessionStorage.getItem('susertoken')){
             socket = io(BOT_URL, {path: BOT_PATH});
             socket.on("connect",()=>{
                 console.log("connected, uuid : ",getAttribute("uuid"));
@@ -229,14 +221,7 @@ function socketInitialization(){
                 },1000)
                 socket.emit("init",{userId:g_config.get("id"),url:BASE_URL})
                 if(g_config.get(`last_sync_info`)){
-                    if (document.querySelector("#_lastTime")){
-                        document.querySelector("#_lastTime").textContent=`Bot Syncing... `
-                    }
-                    else{
-                        const path = "#root > div > header > div > div > div > div.MuiBox-root > div > div.MuiGrid-root"
-                        document.querySelector(path).innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector(path).innerHTML
-
-                    }
+                    console.log("Bot Syncing...")
                 }
                 resolve()
             })
@@ -288,9 +273,7 @@ function runOnPositionUpdate(request){
     try{
         lastUpdatedAt=(new Date()).getTime()
         if(g_config.get(`last_sync_info`)){
-            if (document.querySelector("#_lastTime")){
-                document.querySelector("#_lastTime").textContent=`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `
-            }
+            console.log(`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `)
         }
         const {data}=request
         const {position,strategyId,expiry}=data
@@ -379,20 +362,19 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
         for(const order of basket.orders){
             const limitQty=g_config.get(`${order.script.toUpperCase()}_FREEZE_LIMIT`)
             const qty = g_config.get(`${strategyId}__QTY`)*(order.exitPrevious?2:1)
-            _trades.push(makeOrder({client_id: localStorage.getItem('login_id'),
-                                    device: "WEB",
-                                    disclosed_quantity: 0,
-                                    exchange: "NFO",
-                                    instrument_token: await getInstrumentToken(`${order.script}${order.kiteExpiryPrefix}${order.strike}${order.optionType}`),
-                                    order_side: order.type,
-                                    order_type: "MARKET",
-                                    price: 0,
-                                    product: strategyId.endsWith("POS")?"NRML":(g_config.get("MIS_Order")?"MIS":"NRML"),
-                                    quantity: g_config.get(`${strategyId}__QTY`)*(order.exitPrevious?2:1),
-                                    trigger_price: 0,
-                                    user_order_id: 10002,
-                                    validity: "DAY"
-                                   },order.script.toUpperCase(),qty>limitQty))
+            _trades.push(makeOrder({
+                uid:sessionStorage.getItem('uid'),
+                actid:sessionStorage.getItem('actid'),
+                exch:"NFO",
+                tsym:`${order.script}${order.expiry.match("(..)-(...)-..(..)").slice(1,4).join("").toUpperCase()}${order.optionType[0]}${order.strike}`,
+                qty:qty.toString(),
+                prc:"0",
+                prd:strategyId.endsWith("POS")?"M":(g_config.get("MIS_Order")?"I":"M"),
+                trantype:order.type[0],
+                prctyp:"MKT",
+                ret:"DAY",
+                ordersource:"WEB"
+            } ,order.script.toUpperCase()))
         }
         const responses =  await Promise.all(_trades)
         await waitForAWhile(200)
@@ -701,7 +683,6 @@ async function runOnTradeUpdate(request){
 
 async function init(){
     try{
-
         initMonkeyConfig();
         GM_registerMenuCommand("Reload", reloadPage, "r");
         for(let id of STRATEGY_IDS){
