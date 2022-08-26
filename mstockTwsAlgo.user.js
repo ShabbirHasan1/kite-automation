@@ -1,15 +1,18 @@
 // ==UserScript==
-// @name         finvasiaTwsAlgo
+// @name         mstockTwsAlgo
 // @namespace    https://paisashare.in
 // @version      1.0
-// @description  Algo Trading Finvaisa
+// @description  Algo Trading Kite
 // @author       Souvik Das
-// @match        https://shoonya.finvasia.com/*
+// @match        https://trade.mstock.com/*
+// @match        https://rspub.miraeassetcm.com/*
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addStyle
 // @grant        GM_getResourceText
 // @grant        GM_registerMenuCommand
+// @require      https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/js-sha512/0.8.0/sha512.min.js
 // @require      https://paisashare.in/user-auth/socket.io/socket.io.js
 // @require      https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js
 // @require      https://github.com/TradeWithSouvik/kite-automation/raw/master/monkeyconfig.js
@@ -31,7 +34,7 @@
 window.jQ = jQuery.noConflict(true);
 GM_addStyle(GM_getResourceText("TOASTIFY_CSS"));
 setAttribute("uuid",uuid.v4());
-const BASE_URL = "https://shoonya.finvasia.com/";
+const BASE_URL = "https://trade.mstock.com/";
 const STRATEGIES=[{strategyId:"NIFTY_2259621564362513"},
                   {strategyId:"NIFTY_8915142776897629"},
                   {strategyId:"NIFTY_2662529212584048"},
@@ -52,6 +55,141 @@ const STALE_SECS = 60
 let socket
 let g_config
 let lastUpdatedAt
+
+
+
+const BROKER_CODE="MIRA152"
+let salt = "498960e491150a0fc0f21822a147fd62"
+let iv = "320ef7705d1030f0a1a55b3dcf676cb8"
+class Encryptor {
+    constructor() {
+        this.AesUtil = function(t, e) {
+            this.keySize = t / 32,
+                this.iterationCount = e
+        }
+            ,
+            this.generateKey = function(t, e) {
+            return CryptoJS.PBKDF2(e, CryptoJS.enc.Hex.parse(t), {
+                keySize: this.keySize,
+                iterations: this.iterationCount
+            })
+        }
+            ,
+            this.encrypt = function(t, e, n, i) {
+            var l = this.generateKey(t, n);
+            return CryptoJS.AES.encrypt(i, l, {
+                iv: CryptoJS.enc.Hex.parse(e)
+            }).ciphertext.toString(CryptoJS.enc.Base64)
+        }
+            ,
+            this.decrypt = function(t, e, n, i) {
+            var l = this.generateKey(t, n.toString())
+            , r = CryptoJS.lib.CipherParams.create({
+                ciphertext: CryptoJS.enc.Base64.parse(i)
+            });
+            return CryptoJS.AES.decrypt(r, l, {
+                iv: CryptoJS.enc.Hex.parse(e)
+            }).toString(CryptoJS.enc.Utf8)
+        }
+    }
+}
+const enc = new Encryptor()
+enc.AesUtil(128, 1e3)
+function getInstrumentId(searchterm){
+
+     return new Promise((resolve,reject)=>{
+         let n = JSON.parse(sessionStorage.getItem("userdata"))
+
+         const data={
+             "UserId": n.userdata.ENTITYID,
+             "UserType": "C",
+             "Source": "W",
+             "Data": JSON.stringify({
+                 inst:"",
+                 searchterm,
+                 exch:"NSE|BSE|IDX",
+                 optionflag:true,
+                 indexflag:true
+             }),
+             "broker_code": BROKER_CODE
+         }
+         var settings = {
+             "url": "https://rspub.miraeassetcm.com/SolrSearch/api/Search/Scrip",
+             "method": "POST",
+             "timeout": 0,
+             "headers": {
+                 "Authorization": getHashApi("MIRA152",n.userdata.ENTITYID),
+                 "Content-Type": "application/json",
+                 "bid": BROKER_CODE,
+                 "cid": n.userdata.ENTITYID,
+                 "src": "W"
+             },
+             "data": JSON.stringify(data),
+         };
+
+         jQ.ajax(settings).done((resp)=>{
+             resolve(resp.data[0]["Sid_s"])
+         });
+     });
+
+}
+function dateTojulianHash(t) {
+    return new Date(t + "T00:00+0530").getTime() / 1e3 - new Date("1980-01-01T00:00+0530").getTime() / 1e3
+}
+function getHashApi(t, e) {
+    let n = new Date
+    , i = n.getUTCFullYear() + "-" + ("0" + (n.getUTCMonth() + 1)).slice(-2) + "-" + ("0" + n.getUTCDate()).slice(-2)
+    , l = dateTojulianHash(i)
+    , r = btoa(t) + "-" + e + "-W-" + l;
+    r = sha512.array(r);
+    let o = "";
+    for (let a = 0; a < r.length; a++)
+        o += String.fromCharCode(r[a]);
+    return btoa(o)
+}
+function getSettlor(t, e) {
+        let n = JSON.parse(sessionStorage.getItem("userdata"));
+        return "NSE" == t && "E" == e ? n.Settler.EQ_ENTITY_SETTLOR : "BSE" == t && "E" == e ? n.Settler.EQ_ENTITY_BSE_SETTLOR : "NSE" == t && "D" == e ? n.Settler.DRV_ENTITY_SETTLOR : "NSE" == t && "C" == e ? n.Settler.CURR_ENTITY_SETTLOR : ""
+}
+function placeOrder(order){
+
+    return new Promise(async (resolve,reject)=>{
+        try{
+
+            let e = order
+            let l = sessionStorage.getItem("ucc_code");
+            let r = JSON.parse(sessionStorage.getItem("userdata"));
+            e.token_id = r.userdata.TOKENID
+            e.keyid = r.key.toString()
+            e.userid = r.userdata.ENTITYID.toString()
+            e.clienttype = r.userdata.UM_USER_TYPE.toString()
+            e.usercode = r.userdata.USERID.toString()
+            e.pan_no = r.userdata.PANNO.toString()
+            e.client_id = "8" == r.userdata.SUBTYPE && null != l ? l.toString() : r.userdata.ENTITYID.toString();
+            console.log(e)
+            const orderToSend = JSON.stringify(enc.encrypt(salt,iv,sessionStorage.getItem("JWTtoken"),JSON.stringify(e)))
+
+            jQ.ajaxSetup({
+                headers: {
+                    "Authorisation": `Token ${sessionStorage.getItem("JWTtoken")}`,
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+            });
+            const data={}
+            data[orderToSend]=""
+            jQ.post(BASE_URL + "/trade/placeorder",data,(data, status) =>resolve({data:JSON.parse(enc.decrypt(salt, iv,sessionStorage.getItem("JWTtoken"),data)),status}))
+                .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+
+
+
+
+        }
+        catch(e){
+            reject(e)
+        }
+    });
+
+}
 
 
 
@@ -124,7 +262,7 @@ function getAttribute(key){
 
 
 function makeOrder(order,script){
-    return new Promise((resolve,reject)=>{
+    return new Promise(async (resolve,reject)=>{
         try{
             const fl = g_config.get(`${script}_FREEZE_LIMIT`)
             const qty = order.quantity
@@ -132,35 +270,40 @@ function makeOrder(order,script){
                 let remainingOrders=qty%fl;
                 let times =Math.floor(qty/fl)
                 for(let i=0;i<times;i++){
-                    order.qty=fl.toString()
-                    const data =`jData=${JSON.stringify(order)}&jKey=${sessionStorage.getItem('susertoken')}`
-                    jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data,(data, status) =>resolve({data,status}))
-                        .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+                    order.quantity=fl
+                    const response = await placeOrder(order)
+                    console.log(response)
+                    if(response.data&&response.data.status=="error"){
+                        getToast(response.data.message,true).showToast();
+                    }
+                    resolve(response)
                 }
                 if(remainingOrders>0){
-                    order.qty=remainingOrders.toString()
-                    const data =`jData=${JSON.stringify(order)}&jKey=${sessionStorage.getItem('susertoken')}`
-                    jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data,(data, status) =>resolve({data,status}))
-                        .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+                    order.quantity=remainingOrders
+                    const response = await placeOrder(order)
+                    console.log(response)
+                    if(response.data&&response.data.status=="error"){
+                        getToast(response.data.message,true).showToast();
+                    }
+                    resolve(response)
                 }
             }
             else{
-                 const data =`jData=${JSON.stringify(order)}&jKey=${sessionStorage.getItem('susertoken')}`
-                 jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data,(data, status) =>resolve({data,status}))
-                     .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
-
+                const response = await placeOrder(order)
+                console.log(response)
+                if(response.data&&response.data.status=="error"){
+                    getToast(response.data.message,true).showToast();
+                }
+                resolve(response)
             }
 
         }
         catch(e){
-            console.log(e)
+            reject(e)
         }
     });
 
 }
-
-
-
 
 async function getInstrumentToken(name){
     return (await jQ.get(BASE_URL + `/api/v1/search?key=${name}`)).result[0].token
@@ -206,7 +349,7 @@ function addZero(val){
 
 function socketInitialization(){
     return new Promise((resolve,reject)=>{
-        if(sessionStorage.getItem('susertoken')){
+        if(sessionStorage.getItem("JWTtoken")){
             socket = io(BOT_URL, {path: BOT_PATH});
             socket.on("connect",()=>{
                 console.log("connected, uuid : ",getAttribute("uuid"));
@@ -221,7 +364,14 @@ function socketInitialization(){
                 },1000)
                 socket.emit("init",{userId:g_config.get("id"),url:BASE_URL})
                 if(g_config.get(`last_sync_info`)){
-                    console.log("Bot Syncing...")
+                    if (document.querySelector("#_lastTime")){
+                        document.querySelector("#_lastTime").textContent=`Bot Syncing... `
+                    }
+                    else{
+                        const path = "#root > div > header > div > div > div > div.MuiBox-root > div > div.MuiGrid-root"
+                       // document.querySelector(path).innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector(path).innerHTML
+
+                    }
                 }
                 resolve()
             })
@@ -273,7 +423,9 @@ function runOnPositionUpdate(request){
     try{
         lastUpdatedAt=(new Date()).getTime()
         if(g_config.get(`last_sync_info`)){
-            console.log(`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `)
+            if (document.querySelector("#_lastTime")){
+                document.querySelector("#_lastTime").textContent=`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `
+            }
         }
         const {data}=request
         const {position,strategyId,expiry}=data
@@ -360,21 +512,27 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
     for (const basket of baskets){
         let _trades=[]
         for(const order of basket.orders){
+            console.log(order)
             const limitQty=g_config.get(`${order.script.toUpperCase()}_FREEZE_LIMIT`)
             const qty = g_config.get(`${strategyId}__QTY`)*(order.exitPrevious?2:1)
             _trades.push(makeOrder({
-                uid:sessionStorage.getItem('uid'),
-                actid:sessionStorage.getItem('actid'),
-                exch:"NFO",
-                tsym:`${order.script}${expiry.match("(..)-(...)-..(..)").slice(1,4).join("").toUpperCase()}${order.optionType[0]}${order.strike}`,
-                qty:qty.toString(),
-                prc:"0",
-                prd:strategyId.endsWith("POS")?"M":(g_config.get("MIS_Order")?"I":"M"),
-                trantype:order.type[0],
-                prctyp:"MKT",
-                ret:"DAY",
-                ordersource:"WEB"
-            } ,order.script.toUpperCase()))
+                qty: g_config.get(`${strategyId}__QTY`)*(order.exitPrevious?2:1),
+                price: "MKT" ,
+                odr_type: "MKT" ,
+                product_typ: strategyId.endsWith("POS")?"NRML":(g_config.get("MIS_Order")?"I":"M"),
+                trg_prc: 0,
+                validity: "DAY",
+                disc_qty: 0,
+                amo: false,
+                sec_id: (await getInstrumentId(`${order.script} ${expiry.split("-").join(" ").toUpperCase()} ${order.strike} ${order.optionType}`)),
+                inst_type: "OPTIDX",
+                exch: "NSE",
+                buysell: "S",
+                gtdDate:  "0000-00-00",
+                mktProtectionFlag: "N",
+                mktProtectionVal: 0,
+                settler: getSettlor("NSE", "D")
+            },order.script.toUpperCase(),qty>limitQty))
         }
         const responses =  await Promise.all(_trades)
         await waitForAWhile(200)
@@ -681,8 +839,15 @@ async function runOnTradeUpdate(request){
     }
 }
 
+
+
 async function init(){
     try{
+        let code = (await jQ.get("https://trade.mstock.com/"))
+                   .split("main-es").pop().split(".js").shift()
+        let js = (await jQ.get(`https://trade.mstock.com/main-es${code}.js`))
+        salt = js.split(`this.salt="`).pop().split(`"`).shift()
+        iv = js.split(`this.iv="`).pop().split(`"`).shift()
         initMonkeyConfig();
         GM_registerMenuCommand("Reload", reloadPage, "r");
         for(let id of STRATEGY_IDS){
