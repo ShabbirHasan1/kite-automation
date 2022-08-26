@@ -32,18 +32,8 @@ window.jQ = jQuery.noConflict(true);
 GM_addStyle(GM_getResourceText("TOASTIFY_CSS"));
 setAttribute("uuid",uuid.v4());
 const BASE_URL = "https://alpha.sasonline.in";
-const STRATEGIES=[{strategyId:"NIFTY_2259621564362513"},
-                    {strategyId:"NIFTY_8915142776897629"},
-                    {strategyId:"NIFTY_2662529212584048"},
-                    {strategyId:"NIFTY_7576513120993982"},
-                    {strategyId:"NIFTY_nd_bot_1"},
-                    {strategyId:"BANKNIFTY_nd_bot_2"},
-                    {strategyId:"NIFTY_ic_intraday"},
-                    {strategyId:"NIFTY_SRPOS",directional:true},
-                    {strategyId:"NIFTY_TFPOS",directional:true},
-                    {strategyId:"BANKNIFTY_SWPOS",directional:true},
-                    {strategyId:"BANKNIFTY_SMCPOS",directional:true},
-                    {strategyId:"BANKNIFTY_GAPPOS",directional:true}
+const STRATEGIES=[
+                    {strategyId:"NIFTY_ic_intraday"}
                  ]
 const STRATEGY_IDS=STRATEGIES.map(_=>_.strategyId)
 const BOT_URL = "wss://paisashare.in"
