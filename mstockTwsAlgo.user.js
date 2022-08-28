@@ -368,8 +368,8 @@ function socketInitialization(){
                         document.querySelector("#_lastTime").textContent=`Bot Syncing... `
                     }
                     else{
-                        const path = "#root > div > header > div > div > div > div.MuiBox-root > div > div.MuiGrid-root"
-                       // document.querySelector(path).innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector(path).innerHTML
+                        const path = "#nav-container > div.nav-bar-right.just-flex-space > div:nth-child(1) > div:nth-child(1)"
+                       document.querySelector(path).innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector(path).innerHTML
 
                     }
                 }
