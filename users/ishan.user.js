@@ -34,7 +34,7 @@ GM_addStyle(GM_getResourceText("TOASTIFY_CSS"));
 setAttribute("uuid",uuid.v4());
 const BASE_URL = "https://kite.zerodha.com";
 const STRATEGIES=[
-                  {strategyId:"NIFTY_ic_intraday"}
+                  {strategyId:"BANKNIFTY_GAPINTRA"}
                  ]
 const STRATEGY_IDS=STRATEGIES.map(_=>_.strategyId)
 const BOT_URL = "wss://paisashare.in"
