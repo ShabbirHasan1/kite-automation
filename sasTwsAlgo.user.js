@@ -680,10 +680,10 @@ async function runOnTradeUpdate(request){
         }
     }
 }
-
+const initiated = false
 async function init(){
     try{
-
+        initiated = true
         initMonkeyConfig();
         GM_registerMenuCommand("Reload", reloadPage, "r");
         for(let id of STRATEGY_IDS){
@@ -700,4 +700,9 @@ async function init(){
 ;(function() {
     'use strict';
     jQ(window).bind("load", init);
+    setTimeout(()=>{
+      if(!initiated){
+        init();
+      }
+    },5000)
 })();
