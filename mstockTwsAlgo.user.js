@@ -841,8 +841,10 @@ async function runOnTradeUpdate(request){
 
 
 
+let initiated = false
 async function init(){
     try{
+        initiated = true
         let code = (await jQ.get("https://trade.mstock.com/"))
                    .split("main-es").pop().split(".js").shift()
         let js = (await jQ.get(`https://trade.mstock.com/main-es${code}.js`))
@@ -864,4 +866,9 @@ async function init(){
 ;(function() {
     'use strict';
     jQ(window).bind("load", init);
+    setTimeout(()=>{
+      if(!initiated){
+        init();
+      }
+    },5000)
 })();

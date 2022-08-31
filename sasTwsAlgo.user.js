@@ -680,7 +680,7 @@ async function runOnTradeUpdate(request){
         }
     }
 }
-const initiated = false
+let initiated = false
 async function init(){
     try{
         initiated = true
