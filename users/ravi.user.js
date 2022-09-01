@@ -224,7 +224,7 @@ function socketInitialization(){
 
             socket.on("sendId",async()=>{
                 console.log("Requested id")
-                socket.emit("init",{userId:g_config.get("id"),url:"https://kite.zerodha.com"})
+                socket.emit("init",{userId:g_config.get("id"),url:BASE_URL})
 
             })
             socket.on("disconnect", () => {
