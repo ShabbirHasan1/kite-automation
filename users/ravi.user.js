@@ -119,39 +119,46 @@ function getAttribute(key){
 }
 
 
-function makeOrder(order,script){
-    return new Promise((resolve,reject)=>{
+async function makeOrder(order,script){
         try{
             const fl = g_config.get(`${script}_FREEZE_LIMIT`)
             const qty = order.quantity
+            const responses =[]
             if(qty>fl){
                 let remainingOrders=qty%fl;
                 let times =Math.floor(qty/fl)
                 for(let i=0;i<times;i++){
                     order.qty=fl.toString()
                     const data =`jData=${JSON.stringify(order)}&jKey=${sessionStorage.getItem('susertoken')}`
-                    jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data,(data, status) =>resolve({data,status}))
-                        .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+                    responses.push((await jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data).promise()))
                 }
                 if(remainingOrders>0){
                     order.qty=remainingOrders.toString()
                     const data =`jData=${JSON.stringify(order)}&jKey=${sessionStorage.getItem('susertoken')}`
-                    jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data,(data, status) =>resolve({data,status}))
-                        .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+                    responses.push((await jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data).promise()))
                 }
             }
             else{
                  const data =`jData=${JSON.stringify(order)}&jKey=${sessionStorage.getItem('susertoken')}`
-                 jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data,(data, status) =>resolve({data,status}))
-                     .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+                 responses.push((await jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data).promise()))
 
             }
+            return responses.map(respData=>{
+                        try{
+                            return {
+                                orderSuccess:respData["stat"]&&respData["stat"].toLowerCase()=="ok",
+                                orderNumber:respData["norenordno"]
+                            }
+                        }
+                        catch(e){
+                            return respData
+                        }
+                    })
 
         }
         catch(e){
             console.log(e)
         }
-    });
 
 }
 
@@ -273,6 +280,7 @@ function runOnPositionUpdate(request){
         }
         const {data}=request
         const {position,strategyId,expiry}=data
+        positions[strategyId]=data
         if(checkIfStrategyRunning(strategyId)){
             console.log("Position update for ",strategyId,"at",formatDateTime(new Date()))
         }
@@ -332,9 +340,9 @@ function initMonkeyConfig(){
 
     g_config = new MonkeyConfig(monkeySettings);
 }
-
+let isTrading = false
 async function tradeStrategy(strategyId,requestOrders,expiry){
-
+    isTrading=true
     console.log("Trading orders",strategyId,expiry,requestOrders,"at",formatDateTime(new Date()))
     getToast(`Orders for ${strategyId} placed at ${formatDateTime(new Date())}`).showToast();
     let hedgeStatus = g_config.get(`${strategyId}__HEDGE`)
@@ -353,8 +361,8 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
 
 
     const baskets = [requestDataBuy,requestDataSell]
+    let _trades=[]
     for (const basket of baskets){
-        let _trades=[]
         for(const order of basket.orders){
             const limitQty=g_config.get(`${order.script.toUpperCase()}_FREEZE_LIMIT`)
             const qty = g_config.get(`${strategyId}__QTY`)*(order.exitPrevious?2:1)
@@ -372,9 +380,20 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
                 ordersource:"WEB"
             } ,order.script.toUpperCase()))
         }
-        const responses =  await Promise.all(_trades)
         await waitForAWhile(200)
     }
+    const failedResponses =  (await Promise.all(_trades)).reduce((acc, val) => acc.concat(val), []).filter(_=>!_.orderSuccess)
+    if(failedResponses.length>0){
+        failedResponses.forEach(_=>{
+            console.log("Failed Order",_)
+            getToast(`Failed Order ${JSON.stringify(_)}`).showToast();
+        })
+    }
+    else{
+        getToast(`All orders successfully placed`).showToast();
+        console.log("All orders successfully placed")
+    }
+    isTrading=false
 
 }
 
@@ -405,25 +424,29 @@ async function enterTrade(strategyId){
                 strike:position.legs.put.strike,
                 script:position.script,
                 kiteExpiryPrefix:position.kiteExpiryPrefix
-            },{
-                type:"BUY",
-                optionType:"CE",
-                time,
-                ltp:position.hedges.call.ltp,
-                strike:position.hedges.call.strike,
-                isHedge:true,
-                script:position.script,
-                kiteExpiryPrefix:position.kiteExpiryPrefix
-            },{
-                type:"BUY",
-                optionType:"PE",
-                time,
-                ltp:position.hedges.put.ltp,
-                strike:position.hedges.put.strike,
-                isHedge:true,
-                script:position.script,
-                kiteExpiryPrefix:position.kiteExpiryPrefix
             }]
+            if(position.hedges&&position.hedges.call&&position.hedges.put){
+                requestOrders.push({
+                    type:"BUY",
+                    optionType:"CE",
+                    time,
+                    ltp:position.hedges.call.ltp,
+                    strike:position.hedges.call.strike,
+                    isHedge:true,
+                    script:position.script,
+                    kiteExpiryPrefix:position.kiteExpiryPrefix
+                })
+                requestOrders.push({
+                    type:"BUY",
+                    optionType:"PE",
+                    time,
+                    ltp:position.hedges.put.ltp,
+                    strike:position.hedges.put.strike,
+                    isHedge:true,
+                    script:position.script,
+                    kiteExpiryPrefix:position.kiteExpiryPrefix
+                })
+            }
         }
         else if(position.context.strikes){
             requestOrders=[]
@@ -481,20 +504,20 @@ async function enterTrade(strategyId){
             }
         }
         else if(position.context.strikeAtm){
-        requestOrders=[{
-            type:"SELL",
-            optionType:"CE",
-            strike:position.context.strikeAtm,
-            script:position.script,
-            kiteExpiryPrefix:position.kiteExpiryPrefix
-        },{
-            type:"SELL",
-            optionType:"PE",
-            strike:position.context.strikeAtm,
-            script:position.script,
-            kiteExpiryPrefix:position.kiteExpiryPrefix
-        }]
-    }
+            requestOrders=[{
+                type:"SELL",
+                optionType:"CE",
+                strike:position.context.strikeAtm,
+                script:position.script,
+                kiteExpiryPrefix:position.kiteExpiryPrefix
+            },{
+                type:"SELL",
+                optionType:"PE",
+                strike:position.context.strikeAtm,
+                script:position.script,
+                kiteExpiryPrefix:position.kiteExpiryPrefix
+            }]
+        }
 
         if(checkIfStrategyRunning(strategyId) ){
             if(canBeTraded){
@@ -544,25 +567,29 @@ async function exitTrade(strategyId){
                 strike:position.legs.put.strike,
                 script:position.script,
                 kiteExpiryPrefix:position.kiteExpiryPrefix
-            },{
-                type:"SELL",
-                optionType:"CE",
-                time,
-                ltp:position.hedges.call.ltp,
-                strike:position.hedges.call.strike,
-                isHedge:true,
-                script:position.script,
-                kiteExpiryPrefix:position.kiteExpiryPrefix
-            },{
-                type:"SELL",
-                optionType:"PE",
-                time,
-                ltp:position.hedges.put.ltp,
-                strike:position.hedges.put.strike,
-                isHedge:true,
-                script:position.script,
-                kiteExpiryPrefix:position.kiteExpiryPrefix
             }]
+            if(position.hedges&&position.hedges.call&&position.hedges.put){
+                requestOrders.push({
+                    type:"SELL",
+                    optionType:"CE",
+                    time,
+                    ltp:position.hedges.call.ltp,
+                    strike:position.hedges.call.strike,
+                    isHedge:true,
+                    script:position.script,
+                    kiteExpiryPrefix:position.kiteExpiryPrefix
+                })
+                requestOrders.push({
+                    type:"SELL",
+                    optionType:"PE",
+                    time,
+                    ltp:position.hedges.put.ltp,
+                    strike:position.hedges.put.strike,
+                    isHedge:true,
+                    script:position.script,
+                    kiteExpiryPrefix:position.kiteExpiryPrefix
+                })
+            }
         }
         else if(position.context.strikes){
             requestOrders=[]
@@ -688,9 +715,328 @@ async function init(){
             GM_registerMenuCommand(`${id} Exit`, ()=>{ exitTrade(id)});
         }
         await socketInitialization();
+       while(true){
+           await checkPositions()
+           await waitForAWhile(10000*Math.pow(2,fixTrails))
+       }
     }
     catch(e){
         console.log(e)
+    }
+}
+
+function getPosition(){
+    return new Promise((resolve,reject)=>{
+        const body = {uid:sessionStorage.getItem('uid'),actid:sessionStorage.getItem('actid')}
+        const data =`jData=${JSON.stringify(body)}&jKey=${sessionStorage.getItem('susertoken')}`
+        jQ.post(BASE_URL + "NorenWClientWeb/PositionBook", data,(data, status) =>resolve({data,status}))
+            .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+    });
+}
+
+async function getAllPositions(){
+    try{
+        let existingPositions={}
+        let existingKiteSymbolsMap={}
+
+        let data=(await getPosition()).data;
+        if(data&&Array.isArray(data)){
+            data.filter(_=>parseInt(_.netqty)!=0&&(_.dname.trim().toUpperCase().endsWith("CE")||_.dname.trim().toUpperCase().endsWith("PE")))
+                .forEach(el=>{
+                let scriptElements = el.dname.trim().toUpperCase().split(" ")
+                let quantity=parseInt(el.netqty),
+                    optionType=scriptElements.pop(),
+                    strike=scriptElements.pop(),
+                    script=scriptElements.shift()
+                let key = `${script}-${strike}-${optionType}`
+                if(existingPositions[key]){
+                    existingPositions[key]+=quantity
+                }
+                else{
+                    existingPositions[key]=quantity
+                }
+            })
+        }
+        return {existingPositions,existingKiteSymbolsMap}
+    }
+    catch(e){
+        console.log(e)
+        console.log("Error in getting all positions")
+    }
+}
+
+async function checkPositions(){
+        let today = new Date()
+        if(!isTrading&&(today.getHours()<15||(today.getHours()==15&&today.getMinutes()<25))&&(today.getHours()>9||(today.getHours()==9&&today.getMinutes()>16))){
+
+            isTrading=true
+            try{
+                let time=`${today.getHours()}:${today.getMinutes()<10?"0"+today.getMinutes():today.getMinutes()}`
+
+                const strategyIds=STRATEGIES.map(_=>_.strategyId)
+                const botPositions={}
+                let expirySaved
+                let botKiteSymbolsMap={}
+                strategyIds.forEach((strategyId)=>{
+                    if(checkIfStrategyRunning(strategyId)){
+                        try{
+                            if(positions[strategyId]&&positions[strategyId].position){
+                                const {position,expiry}=positions[strategyId]
+                                if(expiry){
+                                    expirySaved=expiry
+                                }
+                                let requestOrders=[]
+                                if(position.directional&&position.requestOrders){
+                                    requestOrders=position.requestOrders
+                                }
+                                else if(position.legs.call){
+                                    if(!position.slHit){
+                                        requestOrders=[{
+                                            type:"SELL",
+                                            optionType:"CE",
+                                            time,
+                                            ltp:position.legs.call.ltp,
+                                            strike:position.legs.call.strike,
+                                            script:position.script,
+                                            kiteExpiryPrefix:position.kiteExpiryPrefix
+                                        },{
+                                            type:"SELL",
+                                            optionType:"PE",
+                                            time,
+                                            ltp:position.legs.put.ltp,
+                                            strike:position.legs.put.strike,
+                                            script:position.script,
+                                            kiteExpiryPrefix:position.kiteExpiryPrefix
+                                        }]
+                                        if(g_config.get(`${strategyId}__HEDGE`)){
+
+                                            if(position.hedges&&position.hedges.call&&position.hedges.put){
+                                                requestOrders.push({
+                                                    type:"BUY",
+                                                    optionType:"CE",
+                                                    time,
+                                                    ltp:position.hedges.call.ltp,
+                                                    strike:position.hedges.call.strike,
+                                                    isHedge:true,
+                                                    script:position.script,
+                                                    kiteExpiryPrefix:position.kiteExpiryPrefix
+                                                })
+                                                requestOrders.push({
+                                                    type:"BUY",
+                                                    optionType:"PE",
+                                                    time,
+                                                    ltp:position.hedges.put.ltp,
+                                                    strike:position.hedges.put.strike,
+                                                    isHedge:true,
+                                                    script:position.script,
+                                                    kiteExpiryPrefix:position.kiteExpiryPrefix
+                                                })
+                                            }
+                                        }
+                                    }
+                                }
+                                else if(position.context.strikes){
+                                    requestOrders=[]
+                                    //if(position.context.status!="EXITED"){
+                                    if(position.context.strikes.buy){
+                                        if(g_config.get(`${strategyId}__HEDGE`)){
+                                            if(position.context.strikes.buy.call){
+                                                requestOrders.push({
+                                                    type:"BUY",
+                                                    optionType:"CE",
+                                                    time,
+                                                    ltp:0,
+                                                    strike:position.context.strikes.buy.call,
+                                                    isHedge:true,
+                                                    script:position.script,
+                                                    kiteExpiryPrefix:position.kiteExpiryPrefix
+                                                })
+                                            }
+                                            if(position.context.strikes.buy.put){
+                                                requestOrders.push({
+                                                    type:"BUY",
+                                                    optionType:"PE",
+                                                    time,
+                                                    ltp:0,
+                                                    strike:position.context.strikes.buy.put,
+                                                    isHedge:true,
+                                                    script:position.script,
+                                                    kiteExpiryPrefix:position.kiteExpiryPrefix
+                                                })
+                                            }
+                                        }
+
+                                    }
+                                    if(position.context.strikes.sell){
+                                        if(position.context.strikes.sell.call){
+                                            requestOrders.push({
+                                                type:"SELL",
+                                                optionType:"CE",
+                                                time,
+                                                ltp:0,
+                                                strike:position.context.strikes.sell.call,
+                                                script:position.script,
+                                                kiteExpiryPrefix:position.kiteExpiryPrefix
+                                            })
+                                        }
+                                        if(position.context.strikes.sell.put){
+                                            requestOrders.push({
+                                                type:"SELL",
+                                                optionType:"PE",
+                                                time,
+                                                ltp:0,
+                                                strike:position.context.strikes.sell.put,
+                                                script:position.script,
+                                                kiteExpiryPrefix:position.kiteExpiryPrefix
+                                            })
+                                        }
+
+                                    }
+                                    //}
+                                }
+                                else if(position.context.strikeAtm){
+                                    if(position.context.status!="EXITED"){
+                                        requestOrders=[{
+                                            type:"SELL",
+                                            optionType:"CE",
+                                            strike:position.context.strikeAtm,
+                                            script:position.script,
+                                            kiteExpiryPrefix:position.kiteExpiryPrefix
+                                        },{
+                                            type:"SELL",
+                                            optionType:"PE",
+                                            strike:position.context.strikeAtm,
+                                            script:position.script,
+                                            kiteExpiryPrefix:position.kiteExpiryPrefix
+                                        }]
+                                    }
+                                }
+
+                                for(let order of requestOrders){
+                                let quantity=parseInt(g_config.get(`${strategyId}__QTY`))
+                                quantity=order.type=="SELL"?-quantity:quantity
+                                let {script,optionType,strike} = order
+                                let key = `${script}-${strike}-${optionType}`
+                                if(botPositions[key]){
+                                    botPositions[key]+=quantity
+                                }
+                                else{
+                                    botPositions[key]=quantity
+                                }
+                                botKiteSymbolsMap[key]=order.kiteExpiryPrefix
+                            }
+                            }
+                        }
+                        catch(e){
+                            console.log(e)
+                            console.log("Error in looping strategies",strategyId)
+                        }
+                    }
+                })
+                const {existingPositions,existingKiteSymbolsMap} = await getAllPositions()
+                const botPositionIds = Object.keys(botPositions)
+                const existingPositionIds = Object.keys(existingPositions)
+                const toAddPositions = botPositionIds.filter(x => !existingPositionIds.includes(x));
+                const toRemovePositions = existingPositionIds.filter(x => !botPositionIds.includes(x));
+                const toUpdatePositions = existingPositionIds.filter(x => botPositionIds.includes(x));
+                const buildOrders={}
+                for(const pos of toAddPositions){
+                    buildOrders[pos]=botPositions[pos]
+                }
+                for(const pos of toRemovePositions){
+                    buildOrders[pos]=-existingPositions[pos]
+                }
+                for(const pos of toUpdatePositions){
+                    buildOrders[pos]=botPositions[pos]-existingPositions[pos]
+                }
+                let globalRequestOrders=[]
+                for(const key of Object.keys(buildOrders)){
+                    let quantity = Math.abs(buildOrders[key])
+                    if(quantity!=0){
+                        let [script,strike,optionType]=key.split("-")
+                        let type = buildOrders[key]>0?"BUY":"SELL"
+                        quantity=quantity.toString()
+                        globalRequestOrders.push({
+                            type,
+                            optionType,
+                            time,
+                            ltp:0,
+                            strike,
+                            script,
+                            quantity,
+                            kiteExpiryPrefix:existingKiteSymbolsMap[key]||botKiteSymbolsMap[key]
+                        })
+                    }
+                }
+                if(expirySaved){
+                    if(globalRequestOrders.length>0){
+                        if(fixTrails<FIX_LIMIT){
+                            fixTrails++
+                            await fixStrategy(globalRequestOrders,expirySaved)
+                        }
+                        else{
+                            console.log("FIX LIMIT EXCEEDED. PLEASE FIX MANUALLY")
+                        }
+                    }
+                    else{
+                        fixTrails=0
+                    }
+                }
+            }
+            catch(e){
+                console.log(e)
+                console.log("Error in checking positions")
+            }
+            isTrading=false
+        }
+
+}
+
+async function fixStrategy(requestOrders,expiry){
+
+
+    console.log("Fixing orders",expiry,requestOrders.map(_=>`${_.type} ${_.quantity} ${_.script} ${_.strike}`).join("\n"),"at",formatDateTime(new Date()))
+    let requestOrdersBuy=requestOrders.filter(leg=>leg.type==="BUY")
+    let requestOrdersSell=requestOrders.filter(leg=>leg.type==="SELL")
+    const requestDataBuy={
+        orders:requestOrdersBuy,expiry
+    }
+    const requestDataSell={
+        orders:requestOrdersSell,expiry
+    }
+
+
+    const baskets = [requestDataBuy,requestDataSell]
+    let _trades=[]
+    for (const basket of baskets){
+        for(const order of basket.orders){
+            //await refreshTokens()
+            _trades.push(makeOrder({
+                uid:sessionStorage.getItem('uid'),
+                actid:sessionStorage.getItem('actid'),
+                exch:"NFO",
+                tsym:`${order.script}${expiry.match("(..)-(...)-..(..)").slice(1,4).join("").toUpperCase()}${order.optionType[0]}${order.strike}`,
+                qty:order.quantity.toString(),
+                prc:"0",
+                prd:"I",
+                trantype:order.type[0],
+                prctyp:"MKT",
+                ret:"DAY",
+                ordersource:"WEB"
+            } ,order.script.toUpperCase()))
+        }
+        await waitForAWhile(100)
+    }
+    const failedResponses =  (await Promise.all(_trades)).reduce((acc, val) => acc.concat(val), []).filter(_=>!_.orderSuccess)
+    if(failedResponses.length>0){
+        failedResponses.forEach(_=>{
+            console.log("Failed Order",_)
+            getToast(`Failed Order ${JSON.stringify(_)}`).showToast();
+        })
+    }
+    else{
+        getToast(`All order fixes successfully placed`).showToast();
+        console.log("All order fixes successfully placed")
     }
 }
 

@@ -386,8 +386,8 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
 
 
     const baskets = [requestDataBuy,requestDataSell]
+    let _trades=[]
     for (const basket of baskets){
-        let _trades=[]
         for(const order of basket.orders){
             _trades.push(makeOrder({
                 "variety": "regular",
@@ -406,8 +406,18 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
                 "trailing_stoploss": "0"
             },order.script.toUpperCase()))
         }
-        const responses =  await Promise.all(_trades)
         await waitForAWhile(100)
+    }
+    const failedResponses =  (await Promise.all(_trades)).reduce((acc, val) => acc.concat(val), []).filter(_=>!_.orderSuccess)
+    if(failedResponses.length>0){
+        failedResponses.forEach(_=>{
+            console.log("Failed Order",_)
+            getToast(`Failed Order ${JSON.stringify(_)}`).showToast();
+        })
+    }
+    else{
+        getToast(`All orders successfully placed`).showToast();
+        console.log("All orders successfully placed")
     }
     isTrading=false
 }
@@ -732,7 +742,7 @@ async function init(){
         await socketInitialization();
         while(true){
            await checkPositions()
-           await waitForAWhile(2000*Math.pow(2,fixTrails))
+           await waitForAWhile(10000*Math.pow(2,fixTrails))
        }
     }
     catch(e){
@@ -1059,10 +1069,12 @@ async function fixStrategy(requestOrders,expiry){
     if(failedResponses.length>0){
         failedResponses.forEach(_=>{
             console.log("Failed Order",_)
+            getToast(`Failed Order ${JSON.stringify(_)}`).showToast();
         })
     }
     else{
-        console.log("All orders successfully placed")
+        getToast(`All order fixes successfully placed`).showToast();
+        console.log("All order fixes successfully placed")
     }
 }
 
