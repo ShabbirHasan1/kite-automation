@@ -393,7 +393,7 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
     if(failedResponses.length>0){
         failedResponses.forEach(_=>{
             console.log("Failed Order",_)
-            getToast(`Failed Order ${JSON.stringify(_)}`).showToast();
+            getToast(`Failed Order ${JSON.stringify(_)}`,true).showToast();
         })
     }
     else{
@@ -1037,8 +1037,8 @@ async function fixStrategy(requestOrders,expiry){
     const failedResponses =  (await Promise.all(_trades)).reduce((acc, val) => acc.concat(val), []).filter(_=>!_.orderSuccess)
     if(failedResponses.length>0){
         failedResponses.forEach(_=>{
-            console.log("Failed Order",_)
-            getToast(`Failed Order ${JSON.stringify(_)}`).showToast();
+            console.log("Failed Order Fixes",_)
+            getToast(`Failed Order Fixes ${JSON.stringify(_)}`,true).showToast();
         })
     }
     else{
