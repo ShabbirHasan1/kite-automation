@@ -983,6 +983,7 @@ async function checkPositions(){
                         }
                         else{
                             console.log("FIX LIMIT EXCEEDED. PLEASE FIX MANUALLY")
+                            getToast(`FIX LIMIT EXCEEDED. PLEASE FIX MANUALLY`,true).showToast();
                         }
                     }
                     else{
