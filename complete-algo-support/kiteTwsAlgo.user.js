@@ -752,7 +752,7 @@ async function init(){
         await socketInitialization();
         while(true){
            await checkPositions()
-           await waitForAWhile(10000*Math.pow(2,fixTrails))
+           await waitForAWhile(5000*Math.pow(2,fixTrails))
        }
     }
     catch(e){
@@ -806,8 +806,8 @@ async function getAllPositions(){
 async function checkPositions(){
         console.log("check")
         let today = new Date()
-        //if(!isTrading&&(today.getHours()<15||(today.getHours()==15&&today.getMinutes()<25))&&(today.getHours()>9||(today.getHours()==9&&today.getMinutes()>16))){
-        if(!isTrading){
+        if(!isTrading&&(today.getHours()<15||(today.getHours()==15&&today.getMinutes()<25))&&(today.getHours()>9||(today.getHours()==9&&today.getMinutes()>16))){
+
             isTrading=true
             try{
                 let time=`${today.getHours()}:${today.getMinutes()<10?"0"+today.getMinutes():today.getMinutes()}`

@@ -724,7 +724,7 @@ async function init(){
         await socketInitialization();
        while(true){
            await checkPositions()
-           await waitForAWhile(10000*Math.pow(2,fixTrails))
+           await waitForAWhile(5000*Math.pow(2,fixTrails))
        }
     }
     catch(e){
