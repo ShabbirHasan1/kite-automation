@@ -32,7 +32,7 @@
 window.jQ = jQuery.noConflict(true);
 GM_addStyle(GM_getResourceText("TOASTIFY_CSS"));
 setAttribute("uuid",uuid.v4());
-const BASE_URL = "https://kite.zerodha.com";
+const BASE_URL = "https://kite.zerodha.com/";
 const STRATEGIES=[{strategyId:"NIFTY_2259621564362513"},
                   {strategyId:"NIFTY_8915142776897629"},
                   {strategyId:"NIFTY_2662529212584048"},
@@ -144,7 +144,7 @@ async function makeOrder(order,script){
                                 'Authorization': `enctoken ${getCookie('enctoken')}`
                             }
                         });
-                        responses.push((await jQ.post(BASE_URL + "/oms/orders/iceberg",order).promise()))
+                        responses.push((await jQ.post(BASE_URL + "oms/orders/iceberg",order).promise()))
                     }
                     catch(e){
                         responses.push(e.responseJSON)
@@ -161,7 +161,7 @@ async function makeOrder(order,script){
                                     'Authorization': `enctoken ${getCookie('enctoken')}`
                                 }
                             });
-                             responses.push((await jQ.post(BASE_URL + "/oms/orders/regular",order).promise()))
+                             responses.push((await jQ.post(BASE_URL + "oms/orders/regular",order).promise()))
                          }
                         catch(e){
                             responses.push(e.responseJSON)
@@ -175,7 +175,7 @@ async function makeOrder(order,script){
                                     'Authorization': `enctoken ${getCookie('enctoken')}`
                                 }
                             });
-                             responses.push((await jQ.post(BASE_URL + "/oms/orders/regular",order).promise()))
+                             responses.push((await jQ.post(BASE_URL + "oms/orders/regular",order).promise()))
                          }
                         catch(e){
                             responses.push(e.responseJSON)
@@ -185,7 +185,7 @@ async function makeOrder(order,script){
             }
             else{
                 try{
-                    responses.push((await jQ.post(BASE_URL + "/oms/orders/regular",order).promise()))
+                    responses.push((await jQ.post(BASE_URL + "oms/orders/regular",order).promise()))
                 }
                 catch(e){
                     responses.push(e.responseJSON)
@@ -227,7 +227,7 @@ function getQuote(tradingSymbol){
             }
         });
         jQ.ajax({
-            url: BASE_URL + `/oms/quote?i=NFO:${tradingSymbol}`,
+            url: BASE_URL + `oms/quote?i=NFO:${tradingSymbol}`,
             type: 'GET',
             async: false,
             cache: false,
