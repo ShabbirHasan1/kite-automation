@@ -139,6 +139,11 @@ async function makeOrder(order,script){
                 if(order["iceberg_legs"]<=10){
                     order["iceberg_quantity"]=order["quantity"]%order["iceberg_legs"]+Math.floor(order["quantity"]/order["iceberg_legs"])
                     try{
+                        jQ.ajaxSetup({
+                            headers: {
+                                'Authorization': `enctoken ${getCookie('enctoken')}`
+                            }
+                        });
                         responses.push((await jQ.post(BASE_URL + "/oms/orders/iceberg",order).promise()))
                     }
                     catch(e){
@@ -151,6 +156,11 @@ async function makeOrder(order,script){
                     for(let i=0;i<times;i++){
                         order.qty=fl.toString()
                          try{
+                            jQ.ajaxSetup({
+                                headers: {
+                                    'Authorization': `enctoken ${getCookie('enctoken')}`
+                                }
+                            });
                              responses.push((await jQ.post(BASE_URL + "/oms/orders/regular",order).promise()))
                          }
                         catch(e){
@@ -160,6 +170,11 @@ async function makeOrder(order,script){
                     if(remainingOrders>0){
                         order.qty=remainingOrders.toString()
                         try{
+                            jQ.ajaxSetup({
+                                headers: {
+                                    'Authorization': `enctoken ${getCookie('enctoken')}`
+                                }
+                            });
                              responses.push((await jQ.post(BASE_URL + "/oms/orders/regular",order).promise()))
                          }
                         catch(e){
@@ -264,7 +279,7 @@ function socketInitialization(){
 
             socket.on("sendId",async()=>{
                 console.log("Requested id")
-                socket.emit("init",{userId:g_config.get("id"),url:"https://kite.zerodha.com"})
+                socket.emit("init",{userId:g_config.get("id"),url:BASE_URL})
 
             })
             socket.on("disconnect", () => {
