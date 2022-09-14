@@ -1,11 +1,10 @@
 // ==UserScript==
-// @name         kiteTwsAlgo
+// @name         finvasiaTwsAlgo
 // @namespace    https://paisashare.in
 // @version      1.0
-// @description  Algo Trading Kite
+// @description  Algo Trading Finvaisa
 // @author       Souvik Das
-// @match        https://kite.zerodha.com/*
-// @match        https://console.zerodha.com/*
+// @match        https://shoonya.finvasia.com/*
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addStyle
@@ -32,9 +31,10 @@
 window.jQ = jQuery.noConflict(true);
 GM_addStyle(GM_getResourceText("TOASTIFY_CSS"));
 setAttribute("uuid",uuid.v4());
-const BASE_URL = "https://kite.zerodha.com/";
+const BASE_URL = "https://shoonya.finvasia.com/";
 const STRATEGIES=[
-                  {strategyId:"NIFTY_ic_intraday"}
+                    {strategyId:"NIFTY_ic_intraday"},
+                    {strategyId:"NIFTY_TFPOS"}
                  ]
 const STRATEGY_IDS=STRATEGIES.map(_=>_.strategyId)
 const BOT_URL = "wss://paisashare.in"
@@ -116,82 +116,43 @@ function getAttribute(key){
     return GM_getValue("__twsAlgo",{})[key]
 }
 
+
 async function makeOrder(order,script){
         try{
-
-            let responses =[]
             const fl = g_config.get(`${script}_FREEZE_LIMIT`)
-            const qty = parseInt(order.quantity)
-            console.log(qty>fl)
+            const qty = order.quantity
+            const responses =[]
             if(qty>fl){
-                order["variety"]="iceberg"
-                order["iceberg_legs"]=Math.ceil(order["quantity"]/fl)
-                if(order["iceberg_legs"]<=10){
-                    order["iceberg_quantity"]=order["quantity"]%order["iceberg_legs"]+Math.floor(order["quantity"]/order["iceberg_legs"])
-                    try{
-                        jQ.ajaxSetup({
-                            headers: {
-                                'Authorization': `enctoken ${getCookie('enctoken')}`
-                            }
-                        });
-                        responses.push((await jQ.post(BASE_URL + "oms/orders/iceberg",order).promise()))
-                    }
-                    catch(e){
-                        responses.push(e.responseJSON)
-                    }
+                let remainingOrders=qty%fl;
+                let times =Math.floor(qty/fl)
+                for(let i=0;i<times;i++){
+                    order.qty=fl.toString()
+                    const data =`jData=${JSON.stringify(order)}&jKey=${sessionStorage.getItem('susertoken')}`
+                    responses.push((await jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data).promise()))
                 }
-                else{
-                    let remainingOrders=qty%fl;
-                    let times =Math.floor(qty/fl)
-                    for(let i=0;i<times;i++){
-                        order.qty=fl.toString()
-                         try{
-                            jQ.ajaxSetup({
-                                headers: {
-                                    'Authorization': `enctoken ${getCookie('enctoken')}`
-                                }
-                            });
-                             responses.push((await jQ.post(BASE_URL + "oms/orders/regular",order).promise()))
-                         }
-                        catch(e){
-                            responses.push(e.responseJSON)
-                        }
-                    }
-                    if(remainingOrders>0){
-                        order.qty=remainingOrders.toString()
-                        try{
-                            jQ.ajaxSetup({
-                                headers: {
-                                    'Authorization': `enctoken ${getCookie('enctoken')}`
-                                }
-                            });
-                             responses.push((await jQ.post(BASE_URL + "oms/orders/regular",order).promise()))
-                         }
-                        catch(e){
-                            responses.push(e.responseJSON)
-                        }
-                    }
+                if(remainingOrders>0){
+                    order.qty=remainingOrders.toString()
+                    const data =`jData=${JSON.stringify(order)}&jKey=${sessionStorage.getItem('susertoken')}`
+                    responses.push((await jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data).promise()))
                 }
             }
             else{
-                try{
-                    responses.push((await jQ.post(BASE_URL + "oms/orders/regular",order).promise()))
-                }
-                catch(e){
-                    responses.push(e.responseJSON)
-                }
+                 const data =`jData=${JSON.stringify(order)}&jKey=${sessionStorage.getItem('susertoken')}`
+                 responses.push((await jQ.post(BASE_URL + "NorenWClientWeb/PlaceOrder", data).promise()))
+
             }
             return responses.map(respData=>{
-                try{
-                    return {
-                        orderSuccess:respData["status"]&&respData["status"].toLowerCase()=="success",
-                        orderNumber:respData["data"]["order_id"]
-                    }
-                }
-                catch(e){
-                    return respData
-                }
-            })
+                        try{
+                            return {
+                                orderSuccess:respData["stat"]&&respData["stat"].toLowerCase()=="ok",
+                                orderNumber:respData["norenordno"]
+                            }
+                        }
+                        catch(e){
+                            return respData
+                        }
+                    })
+
         }
         catch(e){
             console.log(e)
@@ -201,6 +162,10 @@ async function makeOrder(order,script){
 
 
 
+
+async function getInstrumentToken(name){
+    return (await jQ.get(BASE_URL + `/api/v1/search?key=${name}`)).result[0].token
+}
 
 
 
@@ -217,7 +182,7 @@ function getQuote(tradingSymbol){
             }
         });
         jQ.ajax({
-            url: BASE_URL + `oms/quote?i=NFO:${tradingSymbol}`,
+            url: BASE_URL + `/oms/quote?i=NFO:${tradingSymbol}`,
             type: 'GET',
             async: false,
             cache: false,
@@ -242,7 +207,7 @@ function addZero(val){
 
 function socketInitialization(){
     return new Promise((resolve,reject)=>{
-        if(getCookie('enctoken')){
+        if(sessionStorage.getItem('susertoken')){
             socket = io(BOT_URL, {path: BOT_PATH});
             socket.on("connect",()=>{
                 console.log("connected, uuid : ",getAttribute("uuid"));
@@ -257,12 +222,7 @@ function socketInitialization(){
                 },1000)
                 socket.emit("init",{userId:g_config.get("id"),url:BASE_URL})
                 if(g_config.get(`last_sync_info`)){
-                    if (document.querySelector("#_lastTime")){
-                        document.querySelector("#_lastTime").textContent=`Bot Syncing... `
-                    }
-                    else{
-                        document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML="<span id='_lastTime'>Bot Syncing... </span>"+document.querySelector("#app > div.header > div > div.header-right > div.app-nav").innerHTML
-                    }
+                    console.log("Bot Syncing...")
                 }
                 resolve()
             })
@@ -314,9 +274,7 @@ function runOnPositionUpdate(request){
     try{
         lastUpdatedAt=(new Date()).getTime()
         if(g_config.get(`last_sync_info`)){
-            if (document.querySelector("#_lastTime")){
-                document.querySelector("#_lastTime").textContent=`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `
-            }
+            console.log(`Last Bot Sync at : ${formatDateTime(new Date(lastUpdatedAt))} `)
         }
         const {data}=request
         const {position,strategyId,expiry}=data
@@ -380,7 +338,7 @@ function initMonkeyConfig(){
 
     g_config = new MonkeyConfig(monkeySettings);
 }
-let isTrading=false
+let isTrading = false
 async function tradeStrategy(strategyId,requestOrders,expiry){
     isTrading=true
     console.log("Trading orders",strategyId,expiry,requestOrders,"at",formatDateTime(new Date()))
@@ -404,24 +362,23 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
     let _trades=[]
     for (const basket of baskets){
         for(const order of basket.orders){
+            const limitQty=g_config.get(`${order.script.toUpperCase()}_FREEZE_LIMIT`)
+            const qty = g_config.get(`${strategyId}__QTY`)*(order.exitPrevious?2:1)
             _trades.push(makeOrder({
-                "variety": "regular",
-                "exchange": "NFO",
-                "tradingsymbol": `${order.script}${order.kiteExpiryPrefix}${order.strike}${order.optionType}`,
-                "transaction_type": order.type,
-                "order_type": "MARKET",
-                "quantity": g_config.get(`${strategyId}__QTY`)*(order.exitPrevious?2:1),
-                "price": "0",
-                "product":  strategyId.endsWith("POS")?"NRML":(g_config.get("MIS_Order")?"MIS":"NRML"),
-                "validity": "DAY",
-                "disclosed_quantity": "0",
-                "trigger_price": "0",
-                "squareoff": "0",
-                "stoploss": "0",
-                "trailing_stoploss": "0"
-            },order.script.toUpperCase()))
+                uid:sessionStorage.getItem('uid'),
+                actid:sessionStorage.getItem('actid'),
+                exch:"NFO",
+                tsym:`${order.script}${expiry.match("(..)-(...)-..(..)").slice(1,4).join("").toUpperCase()}${order.optionType[0]}${order.strike}`,
+                qty:qty.toString(),
+                prc:"0",
+                prd:strategyId.endsWith("POS")?"M":(g_config.get("MIS_Order")?"I":"M"),
+                trantype:order.type[0],
+                prctyp:"MKT",
+                ret:"DAY",
+                ordersource:"WEB"
+            } ,order.script.toUpperCase()))
         }
-        await waitForAWhile(100)
+        await waitForAWhile(200)
     }
     const failedResponses =  (await Promise.all(_trades)).reduce((acc, val) => acc.concat(val), []).filter(_=>!_.orderSuccess)
     if(failedResponses.length>0){
@@ -435,6 +392,7 @@ async function tradeStrategy(strategyId,requestOrders,expiry){
         console.log("All orders successfully placed")
     }
     isTrading=false
+
 }
 
 async function enterTrade(strategyId){
@@ -755,7 +713,7 @@ async function init(){
             GM_registerMenuCommand(`${id} Exit`, ()=>{ exitTrade(id)});
         }
         await socketInitialization();
-        while(true){
+       while(true){
            await checkPositions()
            await waitForAWhile(5000*Math.pow(2,fixTrails))
        }
@@ -765,14 +723,13 @@ async function init(){
     }
 }
 
-
-async function getPosition(){
-        jQ.ajaxSetup({
-            headers: {
-                'Authorization': `enctoken ${getCookie('enctoken')}`
-            }
-        });
-        return (await jQ.get(BASE_URL + "oms/portfolio/positions").promise())
+function getPosition(){
+    return new Promise((resolve,reject)=>{
+        const body = {uid:sessionStorage.getItem('uid'),actid:sessionStorage.getItem('actid')}
+        const data =`jData=${JSON.stringify(body)}&jKey=${sessionStorage.getItem('susertoken')}`
+        jQ.post(BASE_URL + "NorenWClientWeb/PositionBook", data,(data, status) =>resolve({data,status}))
+            .fail((xhr, status, error) => reject({data:JSON.parse(xhr.responseText),error,status}));
+    });
 }
 
 async function getAllPositions(){
@@ -780,16 +737,15 @@ async function getAllPositions(){
         let existingPositions={}
         let existingKiteSymbolsMap={}
 
-        let data=(await getPosition());
-        if(data&&data.data&&data.data.net&&Array.isArray(data.data.net)){
-            data.data.net
-                .filter(_=>parseInt(_.quantity)!=0&&(_.tradingsymbol.endsWith("CE")||_.tradingsymbol.toUpperCase().endsWith("PE")))
+        let data=(await getPosition()).data;
+        if(data&&Array.isArray(data)){
+            data.filter(_=>parseInt(_.netqty)!=0&&(_.dname.trim().toUpperCase().endsWith("CE")||_.dname.trim().toUpperCase().endsWith("PE")))
                 .forEach(el=>{
-
-                let symbol = el.tradingsymbol.trim()
-                let regexOutput = symbol.match("(BANKNIFTY|NIFTY)(.....)(.+)(..)");
-                let [_, script, _expiryDate,strike,optionType] = regexOutput
-                let quantity=parseInt(el.quantity)
+                let scriptElements = el.dname.trim().toUpperCase().split(" ")
+                let quantity=parseInt(el.netqty),
+                    optionType=scriptElements.pop(),
+                    strike=scriptElements.pop(),
+                    script=scriptElements.shift()
                 let key = `${script}-${strike}-${optionType}`
                 if(existingPositions[key]){
                     existingPositions[key]+=quantity
@@ -797,7 +753,6 @@ async function getAllPositions(){
                 else{
                     existingPositions[key]=quantity
                 }
-                existingKiteSymbolsMap[key]=symbol
             })
         }
         return {existingPositions,existingKiteSymbolsMap}
@@ -809,7 +764,6 @@ async function getAllPositions(){
 }
 
 async function checkPositions(){
-        console.log("check")
         let today = new Date()
         if(!isTrading&&(today.getHours()<15||(today.getHours()==15&&today.getMinutes()<25))&&(today.getHours()>9||(today.getHours()==9&&today.getMinutes()>16))){
 
@@ -1055,29 +1009,20 @@ async function fixStrategy(requestOrders,expiry){
     let _trades=[]
     for (const basket of baskets){
         for(const order of basket.orders){
-            let tradingsymbol
-            if(order.kiteExpiryPrefix.startsWith(order.script)){
-                tradingsymbol=order.kiteExpiryPrefix
-            }
-            else{
-                tradingsymbol=`${order.script}${order.kiteExpiryPrefix}${order.strike}${order.optionType}`
-            }
+            //await refreshTokens()
             _trades.push(makeOrder({
-                "variety": "regular",
-                "exchange": "NFO",
-                "tradingsymbol":tradingsymbol,
-                "transaction_type": order.type,
-                "order_type": "MARKET",
-                "quantity": order.quantity.toString(),
-                "price": "0",
-                "product":  "MIS",
-                "validity": "DAY",
-                "disclosed_quantity": "0",
-                "trigger_price": "0",
-                "squareoff": "0",
-                "stoploss": "0",
-                "trailing_stoploss": "0"
-            },order.script.toUpperCase()))
+                uid:sessionStorage.getItem('uid'),
+                actid:sessionStorage.getItem('actid'),
+                exch:"NFO",
+                tsym:`${order.script}${expiry.match("(..)-(...)-..(..)").slice(1,4).join("").toUpperCase()}${order.optionType[0]}${order.strike}`,
+                qty:order.quantity.toString(),
+                prc:"0",
+                prd:"I",
+                trantype:order.type[0],
+                prctyp:"MKT",
+                ret:"DAY",
+                ordersource:"WEB"
+            } ,order.script.toUpperCase()))
         }
         await waitForAWhile(100)
     }
@@ -1093,7 +1038,6 @@ async function fixStrategy(requestOrders,expiry){
         console.log("All order fixes successfully placed")
     }
 }
-
 
 ;(function() {
     'use strict';
