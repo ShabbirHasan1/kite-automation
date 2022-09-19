@@ -324,6 +324,10 @@ function initMonkeyConfig(){
             last_sync_info: {
                 type: 'checkbox',
                 default: true
+            },
+            auto_fix: {
+                type: 'checkbox',
+                default: true
             }
         }
     }
@@ -723,8 +727,10 @@ async function init(){
         }
         await socketInitialization();
        while(true){
-           await checkPositions()
-           await waitForAWhile(5000*Math.pow(2,fixTrails))
+            if(g_config.get(`auto_fix`)){
+                await checkPositions()
+                await waitForAWhile(5000*Math.pow(2,fixTrails))
+            }
        }
     }
     catch(e){
