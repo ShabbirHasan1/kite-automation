@@ -124,8 +124,8 @@ function getAttribute(key){
 
 async function makeOrder(order,script){
         try{
-            const fl = g_config.get(`${script}_FREEZE_LIMIT`)
-            const qty = order.quantity
+            const fl = parseInt(g_config.get(`${script}_FREEZE_LIMIT`))
+            const qty = parseInt(order.quantity||order.qty)
             const responses =[]
             if(qty>fl){
                 let remainingOrders=qty%fl;

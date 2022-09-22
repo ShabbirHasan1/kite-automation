@@ -34,7 +34,7 @@ setAttribute("uuid",uuid.v4());
 const BASE_URL = "https://shoonya.finvasia.com/";
 const STRATEGIES=[
                     {strategyId:"NIFTY_ic_intraday"},
-                    {strategyId:"NIFTY_TFPOS"}
+                    {strategyId:"BANKNIFTY_ic_intraday"}
                  ]
 const STRATEGY_IDS=STRATEGIES.map(_=>_.strategyId)
 const BOT_URL = "wss://paisashare.in"
@@ -118,8 +118,8 @@ function getAttribute(key){
 
 async function makeOrder(order,script){
         try{
-            const fl = g_config.get(`${script}_FREEZE_LIMIT`)
-            const qty = order.quantity
+            const fl = parseInt(g_config.get(`${script}_FREEZE_LIMIT`))
+            const qty = parseInt(order.quantity||order.qty)
             const responses =[]
             if(qty>fl){
                 let remainingOrders=qty%fl;

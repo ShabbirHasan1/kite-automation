@@ -130,8 +130,8 @@ async function makeOrder(order,script){
         try{
 
             let responses =[]
-            const fl = g_config.get(`${script}_FREEZE_LIMIT`)
-            const qty = parseInt(order.quantity)
+            const fl = parseInt(g_config.get(`${script}_FREEZE_LIMIT`))
+            const qty = parseInt(order.quantity||order.qty)
             console.log(qty>fl)
             if(qty>fl){
                 order["variety"]="iceberg"
