@@ -1076,7 +1076,7 @@ async function fixStrategy(requestOrders,expiry){
                 "order_type": "MARKET",
                 "quantity": order.quantity.toString(),
                 "price": "0",
-                "product":  "MIS",
+                "product":  strategyId.endsWith("POS")?"NRML":(g_config.get("MIS_Order")?"MIS":"NRML"),
                 "validity": "DAY",
                 "disclosed_quantity": "0",
                 "trigger_price": "0",
