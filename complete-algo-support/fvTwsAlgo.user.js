@@ -1032,7 +1032,7 @@ async function fixStrategy(requestOrders,expiry){
                 tsym:`${order.script}${expiry.match("(..)-(...)-..(..)").slice(1,4).join("").toUpperCase()}${order.optionType[0]}${order.strike}`,
                 qty:order.quantity.toString(),
                 prc:"0",
-                prd:strategyId.endsWith("POS")?"M":(g_config.get("MIS_Order")?"I":"M"),
+                prd:"I",
                 trantype:order.type[0],
                 prctyp:"MKT",
                 ret:"DAY",
